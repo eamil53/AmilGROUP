@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "666780962834",
+    "project_id": "ttstok",
+    "storage_bucket": "ttstok.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:666780962834:android:36002a98d0d36ead22c8cb",
+        "android_client_info": {
+          "package_name": "com.example.stok_takip"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCqfZV46D85OSl5CERVTTdXRX26Unu4b3g"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
