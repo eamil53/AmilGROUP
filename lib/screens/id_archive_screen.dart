@@ -141,11 +141,24 @@ class _IDArchiveScreenState extends State<IDArchiveScreen> {
                 ),
                 child: ClipRRect(
                   borderRadius: BorderRadius.circular(12),
-                  child: Image.file(
-                    File(id.frontImagePath),
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => const Icon(Icons.person, color: AppTheme.ttBlue),
-                  ),
+                  child: id.isLocal
+                      ? Image.file(
+                          File(id.frontImagePath),
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(Icons.person, color: AppTheme.ttBlue),
+                        )
+                      : Image.network(
+                          id.frontImagePath,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              const Icon(Icons.person, color: AppTheme.ttBlue),
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return const Center(
+                                child: CircularProgressIndicator(strokeWidth: 2));
+                          },
+                        ),
                 ),
               ),
               const SizedBox(width: 16),
@@ -265,10 +278,19 @@ class _IDArchiveScreenState extends State<IDArchiveScreen> {
               child: InteractiveViewer(
                 minScale: 0.5,
                 maxScale: 4.0,
-                child: Image.file(
-                  File(path),
-                  fit: BoxFit.contain,
-                ),
+                child: !path.startsWith('http')
+                    ? Image.file(
+                        File(path),
+                        fit: BoxFit.contain,
+                      )
+                    : Image.network(
+                        path,
+                        fit: BoxFit.contain,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Center(child: CircularProgressIndicator());
+                        },
+                      ),
               ),
             ),
             SafeArea(
@@ -309,16 +331,31 @@ class _IDArchiveScreenState extends State<IDArchiveScreen> {
             aspectRatio: 1.58, // Standard credit card ratio
             child: Stack(
               children: [
-                Image.file(
-                  File(path),
-                  width: double.infinity,
-                  height: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: Colors.grey[100],
-                    child: const Icon(Icons.broken_image, color: Colors.grey),
-                  ),
-                ),
+                !path.startsWith('http')
+                    ? Image.file(
+                        File(path),
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.grey[100],
+                          child: const Icon(Icons.broken_image, color: Colors.grey),
+                        ),
+                      )
+                    : Image.network(
+                        path,
+                        width: double.infinity,
+                        height: double.infinity,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return const Center(child: CircularProgressIndicator());
+                        },
+                        errorBuilder: (context, error, stackTrace) => Container(
+                          color: Colors.grey[100],
+                          child: const Icon(Icons.broken_image, color: Colors.grey),
+                        ),
+                      ),
                 Positioned(
                   right: 12,
                   bottom: 12,
@@ -348,9 +385,27 @@ class _IDArchiveScreenState extends State<IDArchiveScreen> {
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')),
           TextButton(
-            onPressed: () {
-              provider.deleteCustomerID(id.id);
-              Navigator.pop(context);
+            onPressed: () async {
+              Navigator.pop(context); // Close dialog
+              
+              // Show loading snackbar
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Kimlik kaydı ve dosyalar komple siliniyor...'),
+                  duration: Duration(seconds: 2),
+                ),
+              );
+
+              await provider.deleteCustomerID(id.id);
+              
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Silme işlemi başarıyla tamamlandı.'),
+                    backgroundColor: Colors.green,
+                  ),
+                );
+              }
             },
             child: const Text('SİL', style: TextStyle(color: Colors.red)),
           ),

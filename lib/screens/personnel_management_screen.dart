@@ -83,6 +83,7 @@ class _PersonnelManagementScreenState extends State<PersonnelManagementScreen> {
       body: provider.isLoading
           ? const Center(child: CircularProgressIndicator())
           : ListView.builder(
+              padding: const EdgeInsets.only(bottom: 80),
               itemCount: provider.personnel.length,
               itemBuilder: (context, index) {
                 final p = provider.personnel[index];
@@ -128,6 +129,7 @@ class _PersonnelManagementScreenState extends State<PersonnelManagementScreen> {
               },
             ),
       floatingActionButton: FloatingActionButton(
+        heroTag: null,
         onPressed: () => _showAddPersonnelDialog(),
         backgroundColor: AppTheme.ttBlue,
         child: const Icon(Icons.add),

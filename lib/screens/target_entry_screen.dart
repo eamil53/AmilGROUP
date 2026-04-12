@@ -39,14 +39,8 @@ class _TargetEntryScreenState extends State<TargetEntryScreen> {
         if (_isSettingTargets) {
           val = provider.getTarget(p.id, _selectedDate, type);
         } else {
-          final existing = provider.dailyAchievements.where(
-            (e) =>
-                e.personnelId == p.id &&
-                e.date.year == _selectedDate.year &&
-                e.date.month == _selectedDate.month &&
-                e.date.day == _selectedDate.day,
-          );
-          val = existing.isNotEmpty ? (existing.first.counts[type] ?? 0) : 0;
+          // Günlük değil, o ayın toplam performansını getir (Kümülatif Senaryo)
+          val = provider.getAchievement(p.id, _selectedDate, type);
         }
         _localData[p.id]![type] = val;
       }
@@ -89,9 +83,12 @@ class _TargetEntryScreenState extends State<TargetEntryScreen> {
           ),
         );
       } else {
+        // Aylık toplam kaydı için tahmin edilebilir bir ID oluştur (Provider ile aynı format)
+        final monthlyId = '${p.id}_${_selectedDate.year}${_selectedDate.month.toString().padLeft(2, '0')}';
+        
         await provider.addDailyAchievement(
           DailyAchievement(
-            id: const Uuid().v4(),
+            id: monthlyId,
             personnelId: p.id,
             date: _selectedDate,
             counts: dataForP,
@@ -119,7 +116,7 @@ class _TargetEntryScreenState extends State<TargetEntryScreen> {
       backgroundColor: Colors.white,
       appBar: AppBar(
         title: Text(
-          _isSettingTargets ? 'Toplu Hedef Tanımla' : 'Toplu Veri Girişi',
+          _isSettingTargets ? 'Hedef Tanımla' : 'Toplam Performans Güncelle',
         ),
         actions: [
           TextButton(
@@ -181,7 +178,7 @@ class _TargetEntryScreenState extends State<TargetEntryScreen> {
       ),
       child: Row(
         children: [
-          Expanded(child: _toggleItem('Veri Girişi', !_isSettingTargets)),
+          Expanded(child: _toggleItem('Performans Güncelle', !_isSettingTargets)),
           Expanded(child: _toggleItem('Hedef Tanımla', _isSettingTargets)),
         ],
       ),
@@ -259,7 +256,7 @@ class _TargetEntryScreenState extends State<TargetEntryScreen> {
     return ListTile(
       visualDensity: VisualDensity.compact,
       title: Text(
-        _isSettingTargets ? 'Hedef Ayı Seç' : 'İşlem Tarihi Seç',
+        _isSettingTargets ? 'Hedef Ayı Seç' : 'Performans Ayı Seç',
         style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
       ),
       subtitle: Text(

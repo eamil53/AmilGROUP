@@ -21,8 +21,7 @@ class _PersonnelAnalysisScreenState extends State<PersonnelAnalysisScreen> {
   Personnel? _selectedPersonnel; 
   bool _isDealerMode = false;
   DateTime _selectedDate = DateTime.now(); // Used for month navigation
-  bool _isGeneratingAI = false;
-  final AIService _aiService = AIService();
+
 
   DateRangeType _rangeType = DateRangeType.monthly;
   DateTimeRange _customRange = DateTimeRange(
@@ -82,15 +81,6 @@ class _PersonnelAnalysisScreenState extends State<PersonnelAnalysisScreen> {
         ),
         elevation: 0,
         backgroundColor: _isDealerMode ? AppTheme.ttMagenta : AppTheme.ttBlue,
-        actions: [
-          IconButton(
-            icon: _isGeneratingAI 
-              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) 
-              : const Icon(Icons.auto_awesome),
-            onPressed: _isGeneratingAI ? null : _generateAIReport,
-            tooltip: 'AI Raporu Oluştur',
-          ),
-        ],
       ),
       body: provider.isLoading 
         ? const Center(child: CircularProgressIndicator())
@@ -107,8 +97,6 @@ class _PersonnelAnalysisScreenState extends State<PersonnelAnalysisScreen> {
                 const SizedBox(height: 24),
                 _buildAnalysisSection(provider),
                 const SizedBox(height: 24),
-                _buildAIInsightsSection(provider),
-                const SizedBox(height: 24),
                 _buildDetailedCategorySection(provider),
                 const SizedBox(height: 24),
                 _buildCategoryChart(provider),
@@ -121,56 +109,7 @@ class _PersonnelAnalysisScreenState extends State<PersonnelAnalysisScreen> {
     );
   }
 
-  Future<void> _generateAIReport() async {
-    final provider = context.read<TargetProvider>();
-    setState(() => _isGeneratingAI = true);
 
-    try {
-      final Map<TargetType, int> achievements = {};
-      final Map<TargetType, int> targets = {};
-      
-      for (var type in TargetType.values) {
-        if (_isDealerMode) {
-          targets[type] = provider.getDealerTarget(_selectedDate, type);
-          achievements[type] = provider.getDealerAchievement(_selectedDate, type);
-        } else {
-          targets[type] = provider.getTarget(_selectedPersonnel!.id, _selectedDate, type);
-          achievements[type] = provider.getAchievement(_selectedPersonnel!.id, _selectedDate, type);
-        }
-      }
-
-      // Calculate progress using current logic
-      final now = DateTime.now();
-      double progress = 0;
-      if (_selectedDate.year < now.year || (_selectedDate.year == now.year && _selectedDate.month < now.month)) {
-        progress = 1.0;
-      } else if (_selectedDate.year == now.year && _selectedDate.month == now.month) {
-        progress = now.day / DateTime(now.year, now.month + 1, 0).day;
-      }
-
-      final report = await _aiService.generatePerformanceReport(
-        pName: _isDealerMode ? "TÜM BAYİ" : _selectedPersonnel!.name,
-        achievements: achievements,
-        targets: targets,
-        monthProgress: progress,
-      );
-
-      if (mounted) {
-        _showAIReport(report);
-      }
-    } finally {
-      if (mounted) setState(() => _isGeneratingAI = false);
-    }
-  }
-
-  void _showAIReport(String report) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (context) => _AIReportView(report: report, pName: _isDealerMode ? "Bayi Toplam" : _selectedPersonnel?.name ?? "Personel"),
-    );
-  }
 
 
   Future<void> _selectDate() async {
@@ -429,95 +368,7 @@ class _PersonnelAnalysisScreenState extends State<PersonnelAnalysisScreen> {
     );
   }
 
-  Widget _buildAIInsightsSection(TargetProvider provider) {
-    final risks = <_InsightItem>[];
-    
-    for (var type in TargetType.values) {
-      int target = _isDealerMode ? provider.getDealerTarget(_selectedDate, type) : provider.getTarget(_selectedPersonnel!.id, _selectedDate, type);
-      int achieved = _isDealerMode ? provider.getDealerAchievement(_selectedDate, type) : provider.getAchievement(_selectedPersonnel!.id, _selectedDate, type);
-      if (target == 0) continue;
-      
-      final res = _calculateGidisat(achieved, target, _selectedDate);
-      if (res.status == 'Riskli' || res.status == 'Normal') {
-        risks.add(_InsightItem(type, res.status, _getAIAdvice(type)));
-      }
-    }
 
-    if (risks.isEmpty && !_isDealerMode) {
-      return Container(
-        padding: const EdgeInsets.all(20),
-        decoration: BoxDecoration(color: Colors.green.withOpacity(0.05), borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.green.withOpacity(0.1))),
-        child: const Row(
-          children: [
-            Icon(Icons.auto_awesome, color: Colors.green),
-            SizedBox(width: 12),
-            Expanded(child: Text('Tüm hedefleriniz yolunda! Mevcut çalışma temponuzu korumanızı öneririm.', style: TextStyle(color: Colors.green, fontWeight: FontWeight.w500))),
-          ],
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Icon(Icons.psychology, color: _isDealerMode ? AppTheme.ttMagenta : AppTheme.ttBlue),
-            const SizedBox(width: 8),
-            const Text('AI Performans Koçu', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ...risks.take(3).map((risk) => Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: risk.status == 'Riskli' ? Colors.red.withOpacity(0.1) : Colors.orange.withOpacity(0.1)),
-            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10)],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: risk.status == 'Riskli' ? Colors.red.withOpacity(0.1) : Colors.orange.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(_formatEnum(risk.type), style: TextStyle(color: risk.status == 'Riskli' ? Colors.red : Colors.orange, fontWeight: FontWeight.bold, fontSize: 11)),
-                  ),
-                  const Spacer(),
-                  const Icon(Icons.lightbulb_outline, size: 16, color: Colors.amber),
-                ],
-              ),
-              const SizedBox(height: 10),
-              Text(risk.advice, style: const TextStyle(fontSize: 13, height: 1.4, color: Colors.black87)),
-            ],
-          ),
-        )).toList(),
-      ],
-    );
-  }
-
-  String _getAIAdvice(TargetType type) {
-    switch (type) {
-      case TargetType.mobilFaturali: 
-        return "Mevcut faturasız kullanıcılarınıza faturalı tarifelerin sabit fiyat ve yüksek internet avantajlarını vurgulayın.";
-      case TargetType.sabitInternet:
-        return "Fiber altyapısı olan bölgelerdeki mobil müşterilere özel 'Evde Internet' avantajlarını ve hızı anlatın.";
-      case TargetType.tivibuIptv:
-      case TargetType.tivibuUydu:
-        return "İçerik zenginliğini (Futbol, Sinema) öne çıkararak, internet kurulumu yapılan her eve Tivibu deneme teklifi götürün.";
-      case TargetType.cihazAkilli:
-        return "Müşterilerinizin 'Faturaya Ek' kredi limitlerini her işlemde kontrol edin ve taksitli teklifleri hatırlatın.";
-      default:
-        return "Bu kategorideki satış ivmenizi artırmak için potansiyel müşterilere yönelik çapraz satış (Cross-sale) yapmayı deneyin.";
-    }
-  }
 
   Widget _buildDetailedCategorySection(TargetProvider provider) {
     return Column(
@@ -746,163 +597,4 @@ class _GidisatResult {
   final double monthProgress;
 
   _GidisatResult(this.status, this.color, this.advice, this.completionRate, this.forecast, this.monthProgress);
-}
-
-class _InsightItem {
-  final TargetType type;
-  final String status;
-  final String advice;
-
-  _InsightItem(this.type, this.status, this.advice);
-}
-
-class _AIReportView extends StatelessWidget {
-  final String report;
-  final String pName;
-  const _AIReportView({required this.report, required this.pName});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      height: MediaQuery.of(context).size.height * 0.85,
-      decoration: const BoxDecoration(
-        color: Color(0xFFF8FAFD),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(32)),
-      ),
-      child: Column(
-        children: [
-          _buildHeader(context),
-          Expanded(
-            child: ListView(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              children: [
-                const SizedBox(height: 12),
-                _buildIntroCard(),
-                const SizedBox(height: 20),
-                _buildDynamicContent(),
-                const SizedBox(height: 40),
-              ],
-            ),
-          ),
-          _buildFooter(context),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeader(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.fromLTRB(24, 12, 16, 24),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 10, offset: const Offset(0, 4))],
-      ),
-      child: Column(
-        children: [
-          Container(
-            width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(2)),
-          ),
-          const SizedBox(height: 20),
-          Row(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: AppTheme.ttMagenta.withOpacity(0.1),
-                child: const Icon(Icons.auto_awesome, color: AppTheme.ttMagenta),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(pName, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.black)),
-                    const Text('Bireysel Performans Karnesi', style: TextStyle(fontSize: 13, color: Colors.grey)),
-                  ],
-                ),
-              ),
-              IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close_rounded, color: Colors.grey)),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildIntroCard() {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(colors: [AppTheme.ttBlue, AppTheme.ttBlue.withOpacity(0.8)], begin: Alignment.topLeft, end: Alignment.bottomRight),
-        borderRadius: BorderRadius.circular(24),
-        boxShadow: [BoxShadow(color: AppTheme.ttBlue.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 6))],
-      ),
-      child: const Row(
-        children: [
-          Icon(Icons.lightbulb, color: Colors.white, size: 28),
-          SizedBox(width: 16),
-          Expanded(
-            child: Text(
-              'Yapay zeka verilerini analiz etti ve senin için özel bir gelişim planı hazırladı.',
-              style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w500, height: 1.4),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDynamicContent() {
-    final sections = report.split(RegExp(r'\n(?=\d\.)|\n(?=[A-ZŞĞÜİÖÇ]{3,})|\n(?=\*\*)'));
-
-    return Column(
-      children: sections.map((section) {
-        if (section.trim().isEmpty) return const SizedBox();
-        bool isHeader = (section.contains(':') && section.length < 50) || section.trim().startsWith(RegExp(r'\d\.|\*\*'));
-        return Container(
-          width: double.infinity,
-          margin: const EdgeInsets.only(bottom: 16),
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: Colors.grey[100]!),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (isHeader)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: Text(section.trim().replaceAll('**', ''), style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.ttBlue)),
-                )
-              else
-                Text(
-                  section.trim().replaceAll('**', '').replaceAll('*', '•'),
-                  style: TextStyle(fontSize: 14, height: 1.6, color: Colors.grey[800]),
-                ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
-  }
-
-  Widget _buildFooter(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(context).padding.bottom),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey[100]!)),
-      ),
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: AppTheme.ttMagenta,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        ),
-        onPressed: () => Navigator.pop(context),
-        child: const Text('OKUDUM, ANLADIM', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1, color: Colors.white)),
-      ),
-    );
-  }
 }

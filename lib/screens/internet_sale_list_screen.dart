@@ -17,10 +17,31 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = Provider.of<InternetSaleProvider>(context);
+    
+    // Ay ismini Türkçe olarak göster
+    final currentMonthId = provider.selectedMonth;
+    final year = currentMonthId.split('-')[0];
+    final month = currentMonthId.split('-')[1];
+    final monthName = _getMonthName(int.parse(month));
+
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FA),
       appBar: AppBar(
-        title: const Text('İnternet Satış Kayıtları'),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('İnternet Satış Kayıtları'),
+            Text('$monthName $year Verileri', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: Colors.white70)),
+          ],
+        ),
+        actions: [
+          IconButton(
+            onPressed: () => _selectMonthDialog(context, provider),
+            icon: const Icon(Icons.calendar_month),
+            tooltip: 'Ay Seç',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -35,10 +56,19 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
                   return s.customerFullName.toLowerCase().contains(search) ||
                          s.customerTc.contains(search) ||
                          s.xdslNo.contains(search);
-                }).toList().reversed.toList();
+                }).toList();
 
                 if (filteredSales.isEmpty) {
-                  return const Center(child: Text('Kayıt bulunamadı.'));
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        Text('$monthName ayı için kayıt bulunamadı.', style: TextStyle(color: Colors.grey[500])),
+                      ],
+                    ),
+                  );
                 }
 
                 return ListView.builder(
@@ -54,6 +84,54 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  String _getMonthName(int month) {
+    const months = [
+      'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
+      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+    ];
+    return months[month - 1];
+  }
+
+  void _selectMonthDialog(BuildContext context, InternetSaleProvider provider) {
+    final currentYear = DateTime.now().year;
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (context) {
+        return Container(
+          padding: const EdgeInsets.all(20),
+          height: 400,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Görüntülenecek Ayı Seçin', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              Expanded(
+                child: ListView.builder(
+                  itemCount: 12,
+                  itemBuilder: (context, index) {
+                    final monthIndex = 12 - index; // Son ayları başa getir
+                    final monthId = "$currentYear-${monthIndex.toString().padLeft(2, '0')}";
+                    final isSelected = provider.selectedMonth == monthId;
+
+                    return ListTile(
+                      title: Text(_getMonthName(monthIndex), style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
+                      trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.ttBlue) : null,
+                      onTap: () {
+                        provider.setMonth(monthId);
+                        Navigator.pop(context);
+                      },
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

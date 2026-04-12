@@ -56,9 +56,9 @@ class TargetProvider extends ChangeNotifier {
   // --- Actions ---
 
   Future<void> addDailyAchievement(DailyAchievement da) async {
-    // We use a predictable ID to avoid duplicates (personnelId_YYYYMMDD)
-    final docId = '${da.personnelId}_${da.date.year}${da.date.month.toString().padLeft(2, '0')}${da.date.day.toString().padLeft(2, '0')}';
-    await _db.collection('daily_achievements').doc(docId).set(da.toMap());
+    // da.id artık TargetEntryScreen tarafından pId_YYYYMM formatında üretiliyor.
+    // Bu sayede aynı ay için girilen her veri bir öncekinin üzerine yazar (Topla-Gel değil, Üstüne Yaz senaryosu).
+    await _db.collection('daily_achievements').doc(da.id).set(da.toMap());
   }
 
   Future<void> setMonthlyTarget(MonthlyTarget mt) async {
@@ -102,9 +102,23 @@ class TargetProvider extends ChangeNotifier {
   }
 
   int getAchievement(String pId, DateTime month, TargetType type) {
-    return _dailyAchievements
+    // Tüm kayıtları filtrele
+    final achievements = _dailyAchievements
       .where((e) => e.personnelId == pId && e.date.year == month.year && e.date.month == month.month)
-      .fold(0, (sum, e) => sum + (e.counts[type] ?? 0));
+      .toList();
+      
+    if (achievements.isEmpty) return 0;
+    
+    // Eğer kümülatif/toplam ID formatına sahip bir kayıt varsa onu bul
+    final monthlyDocId = '${pId}_${month.year}${month.month.toString().padLeft(2, '0')}';
+    final monthlyEntry = achievements.where((e) => e.id == monthlyDocId).toList();
+    
+    if (monthlyEntry.isNotEmpty) {
+      return monthlyEntry.first.counts[type] ?? 0;
+    }
+    
+    // Eğer o aya ait toplam kaydı yoksa (eski veriler), en son girilen tek bir kaydı baz al
+    return achievements.last.counts[type] ?? 0;
   }
 
   int getAchievementInRange(String pId, DateTime start, DateTime end, TargetType type) {
