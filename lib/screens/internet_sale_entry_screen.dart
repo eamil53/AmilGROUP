@@ -6,6 +6,8 @@ import 'package:uuid/uuid.dart';
 import '../models/internet_sale.dart';
 import '../providers/internet_sale_provider.dart';
 import '../theme/app_theme.dart';
+import '../providers/target_provider.dart';
+import '../models/target.dart';
 
 class InternetSaleEntryScreen extends StatefulWidget {
   const InternetSaleEntryScreen({super.key});
@@ -20,30 +22,35 @@ class _InternetSaleEntryScreenState extends State<InternetSaleEntryScreen> {
   // Controllers
   final _tcController = TextEditingController();
   final _nameController = TextEditingController();
-  final _campaignController = TextEditingController();
   final _xdslController = TextEditingController();
   final _accountController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _sellerController = TextEditingController();
-  final _soldUserController = TextEditingController();
-  final _speedController = TextEditingController();
   final _descriptionController = TextEditingController();
   
   DateTime _selectedDate = DateTime.now();
   InternetSaleStatus _status = InternetSaleStatus.beklemede;
   bool _hasOldInternet = false;
 
+  final List<String> _campaignOptions = ['TİVİBULU AİLE HD', '4 MEVSİM', 'FİBER GÜCÜ'];
+  final List<String> _speedOptions = ['16', '24', '50', '100', '200', '500', '1000'];
+  
+  String? _selectedCampaign = 'TİVİBULU AİLE HD';
+  String? _selectedSpeed = '24';
+  String? _selectedSeller;
+  String? _selectedSoldUser;
+
+  @override
+  void initState() {
+    super.initState();
+  }
+
   @override
   void dispose() {
     _tcController.dispose();
     _nameController.dispose();
-    _campaignController.dispose();
     _xdslController.dispose();
     _accountController.dispose();
     _phoneController.dispose();
-    _sellerController.dispose();
-    _soldUserController.dispose();
-    _speedController.dispose();
     _descriptionController.dispose();
     super.dispose();
   }
@@ -75,18 +82,25 @@ class _InternetSaleEntryScreenState extends State<InternetSaleEntryScreen> {
 
   void _saveForm() {
     if (_formKey.currentState!.validate()) {
+      if (_selectedSeller == null || _selectedSoldUser == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Lütfen satış yapan ve katılım sağlayan personeli seçin!'), backgroundColor: Colors.red),
+        );
+        return;
+      }
+      
       final newSale = InternetSale(
         id: const Uuid().v4(),
         customerTc: _tcController.text,
         customerFullName: _nameController.text,
         date: _selectedDate,
-        campaign: _campaignController.text,
+        campaign: _selectedCampaign ?? '',
         xdslNo: _xdslController.text,
         accountNo: _accountController.text,
         phoneNo: _phoneController.text,
-        sellerName: _sellerController.text,
-        soldUser: _soldUserController.text,
-        speed: _speedController.text,
+        sellerName: _selectedSeller ?? '',
+        soldUser: _selectedSoldUser ?? '',
+        speed: _selectedSpeed ?? '',
         status: _status,
         hasOldInternet: _hasOldInternet,
         description: _descriptionController.text,
@@ -103,12 +117,30 @@ class _InternetSaleEntryScreenState extends State<InternetSaleEntryScreen> {
         ),
       );
       
-      Navigator.pop(context);
+      // Formu temizle ve yeni kayda hazır hale getir
+      _formKey.currentState?.reset();
+      _tcController.clear();
+      _nameController.clear();
+      _xdslController.clear();
+      _accountController.clear();
+      _phoneController.clear();
+      _descriptionController.clear();
+      
+      setState(() {
+         _selectedDate = DateTime.now();
+         _status = InternetSaleStatus.beklemede;
+         _hasOldInternet = false;
+         _selectedSeller = null;
+         _selectedSoldUser = null;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final personnelList = context.watch<TargetProvider>().personnel;
+    final personnelNames = personnelList.map((p) => p.name).toList();
+
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
       appBar: AppBar(
@@ -138,25 +170,25 @@ class _InternetSaleEntryScreenState extends State<InternetSaleEntryScreen> {
               _buildSectionHeader('Abonelik Bilgileri', Icons.router),
               _buildCard([
                 _buildDateField('Satış Tarihi'),
-                _buildTextField('Kampanya Adı', _campaignController, Icons.campaign),
+                _buildDropdownField('Kampanya Adı', _selectedCampaign, _campaignOptions, Icons.campaign, (val) => setState(() => _selectedCampaign = val)),
                 Row(
                   children: [
-                    Expanded(child: _buildTextField('XDSL No', _xdslController, Icons.numbers)),
+                    Expanded(child: _buildTextField('XDSL No', _xdslController, Icons.numbers, keyboardType: TextInputType.number)),
                     const SizedBox(width: 12),
-                    Expanded(child: _buildTextField('Hesap No', _accountController, Icons.account_box)),
+                    Expanded(child: _buildTextField('Hesap No', _accountController, Icons.account_box, keyboardType: TextInputType.number)),
                   ],
                 ),
-                _buildTextField('Paket Hızı (Mbps)', _speedController, Icons.speed, keyboardType: TextInputType.number),
+                _buildDropdownField('Paket Hızı (Mbps)', _selectedSpeed, _speedOptions, Icons.speed, (val) => setState(() => _selectedSpeed = val)),
               ]),
               const SizedBox(height: 20),
               
               _buildSectionHeader('Satış Detayları', Icons.sell),
               _buildCard([
-                _buildTextField('Satış Yapan Kişi', _sellerController, Icons.assignment_ind),
-                _buildTextField('Satış Yapılan Kullanıcı Adı', _soldUserController, Icons.verified_user),
+                _buildDropdownField('Satış Yapan Kişi', _selectedSeller, personnelNames, Icons.assignment_ind, (val) => setState(() => _selectedSeller = val), hint: 'Satıcı Seçin'),
+                _buildDropdownField('Satış Yapılan Kullanıcı Adı', _selectedSoldUser, personnelNames, Icons.verified_user, (val) => setState(() => _selectedSoldUser = val), hint: 'Kullanıcı Seçin'),
                 _buildStatusDropdown(),
                 _buildSwitchField('Eski İnterneti Var mı?', _hasOldInternet, (val) => setState(() => _hasOldInternet = val)),
-                _buildTextField('Açıklama', _descriptionController, Icons.description, maxLines: 3),
+                _buildTextField('Açıklama', _descriptionController, Icons.description, maxLines: 3, isRequired: false),
               ]),
               
               const SizedBox(height: 32),
@@ -169,7 +201,7 @@ class _InternetSaleEntryScreenState extends State<InternetSaleEntryScreen> {
                 ),
                 child: const Text('KAYDET VE GÖNDER', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               ),
-              const SizedBox(height: 40),
+              const SizedBox(height: 120),
             ],
           ),
         ),
@@ -215,7 +247,7 @@ class _InternetSaleEntryScreenState extends State<InternetSaleEntryScreen> {
     );
   }
 
-  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {TextInputType? keyboardType, int? maxLines = 1, int? maxLength}) {
+  Widget _buildTextField(String label, TextEditingController controller, IconData icon, {TextInputType? keyboardType, int? maxLines = 1, int? maxLength, bool isRequired = true}) {
     return TextFormField(
       controller: controller,
       keyboardType: keyboardType,
@@ -226,7 +258,12 @@ class _InternetSaleEntryScreenState extends State<InternetSaleEntryScreen> {
         prefixIcon: Icon(icon, color: AppTheme.ttBlue.withOpacity(0.7)),
         counterText: '',
       ),
-      validator: (value) => (value == null || value.isEmpty) ? 'Bu alan boş bırakılamaz' : null,
+      validator: (value) {
+        if (isRequired && (value == null || value.isEmpty)) {
+          return 'Bu alan boş bırakılamaz';
+        }
+        return null;
+      },
     );
   }
 
@@ -294,6 +331,28 @@ class _InternetSaleEntryScreenState extends State<InternetSaleEntryScreen> {
           activeColor: AppTheme.ttBlue,
         ),
       ],
+    );
+  }
+
+  Widget _buildDropdownField(String label, String? value, List<String> items, IconData icon, Function(String?) onChanged, {String? hint}) {
+    // If the value isn't strictly inside items, reset it to null to avoid Dropdown errors.
+    final currentValue = (value != null && items.contains(value)) ? value : null;
+
+    return DropdownButtonFormField<String>(
+      value: currentValue,
+      decoration: InputDecoration(
+        labelText: label,
+        prefixIcon: Icon(icon, color: AppTheme.ttBlue.withOpacity(0.7)),
+      ),
+      hint: hint != null ? Text(hint) : null,
+      items: items.map((String item) {
+        return DropdownMenuItem<String>(
+          value: item,
+          child: Text(item),
+        );
+      }).toList(),
+      onChanged: onChanged,
+      validator: (val) => (val == null || val.isEmpty) ? 'Lütfen seçim yapınız' : null,
     );
   }
 }

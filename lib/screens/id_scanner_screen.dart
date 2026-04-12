@@ -402,25 +402,66 @@ class _IDScannerScreenState extends State<IDScannerScreen> {
     );
   }
 
-  void _saveFinalResult() {
+  Future<void> _saveFinalResult() async {
     if (_frontFilePath != null && _backFilePath != null) {
-      final newID = CustomerID(
-        id: const Uuid().v4(),
-        name: _nameController.text.toUpperCase(),
-        surname: _surnameController.text.toUpperCase(),
-        birthDate: _extractedBirthDate,
-        frontImagePath: _frontFilePath!,
-        backImagePath: _backFilePath!,
-        createdAt: DateTime.now(),
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(color: AppTheme.ttMagenta),
+              SizedBox(height: 16),
+              Text(
+                'Firebase\'e Kaydediliyor...',
+                style: TextStyle(color: Colors.white, decoration: TextDecoration.none, fontSize: 16),
+              ),
+            ],
+          ),
+        ),
       );
 
-      context.read<IDProvider>().addCustomerID(newID);
+      try {
+        final newID = CustomerID(
+          id: const Uuid().v4(),
+          name: _nameController.text.toUpperCase(),
+          surname: _surnameController.text.toUpperCase(),
+          birthDate: _extractedBirthDate,
+          frontImagePath: _frontFilePath!,
+          backImagePath: _backFilePath!,
+          createdAt: DateTime.now(),
+        );
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Kimlik başarıyla kaydedildi')),
-      );
+        await context.read<IDProvider>().addCustomerID(newID);
 
-      Navigator.pop(context);
+        // 4. Clean up local files after successful upload
+        try {
+          if (_frontFilePath != null && File(_frontFilePath!).existsSync()) {
+            await File(_frontFilePath!).delete();
+          }
+          if (_backFilePath != null && File(_backFilePath!).existsSync()) {
+            await File(_backFilePath!).delete();
+          }
+        } catch (e) {
+          debugPrint("Local file cleanup error: $e");
+        }
+
+        if (mounted) {
+          Navigator.pop(context); // Close loading dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Kimlik başarıyla Firebase\'e kaydedildi')),
+          );
+          Navigator.pop(context); // Exit scanner
+        }
+      } catch (e) {
+        if (mounted) {
+          Navigator.pop(context); // Close loading dialog
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Hata oluştu: $e')),
+          );
+        }
+      }
     }
   }
 

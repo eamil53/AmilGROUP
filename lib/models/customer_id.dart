@@ -36,14 +36,16 @@ class CustomerID {
       id: map['id'] ?? '',
       name: map['name'] ?? '',
       surname: map['surname'] ?? '',
-      birthDate: map['birthDate'] != null ? DateTime.parse(map['birthDate']) : null,
+      birthDate: map['birthDate'] != null ? DateTime.tryParse(map['birthDate']) : null,
       frontImagePath: map['frontImagePath'] ?? '',
       backImagePath: map['backImagePath'] ?? '',
-      createdAt: DateTime.parse(map['createdAt']),
+      createdAt: map['createdAt'] != null ? DateTime.tryParse(map['createdAt']) ?? DateTime.now() : DateTime.now(),
     );
   }
 
   String toJson() => json.encode(toMap());
 
   factory CustomerID.fromJson(String source) => CustomerID.fromMap(json.decode(source));
+
+  bool get isLocal => !frontImagePath.startsWith('http');
 }

@@ -29,6 +29,23 @@ class StockProvider extends ChangeNotifier {
 
   StockProvider() {
     _loadData();
+    _startExcelDataListener();
+  }
+
+  void _startExcelDataListener() {
+    _db.collection('settings').doc('excel_data').snapshots().listen((snap) {
+      if (snap.exists) {
+        try {
+          final map = snap.data() as Map<String, dynamic>;
+          _excelDataMap = map.map((key, value) => MapEntry(key, Map<String, double>.from(value)));
+          _saveData();
+          notifyListeners();
+          debugPrint("Excel data updated from Firebase");
+        } catch (e) {
+          debugPrint("Error parsing excel data from Firebase: $e");
+        }
+      }
+    });
   }
 
   Future<void> _loadData() async {
@@ -70,15 +87,32 @@ class StockProvider extends ChangeNotifier {
 
     _lowStockThreshold = prefs.getInt('stok_low_threshold') ?? 2;
 
+    // İlk açılışta verileri senkronize et
+    bool initialSyncDone = prefs.getBool('firebase_initial_sync_done') ?? false;
+    
+    if (!initialSyncDone) {
+      if (_products.isNotEmpty) {
+        // Eğer yerelde veri varsa (eski kullanıcı), Firebase'e yükle
+        await syncExistingToFirestore();
+        await prefs.setBool('firebase_initial_sync_done', true);
+      } else {
+        // Eğer yerel boşsa (yeni cihaz), Firebase'den çek
+        await fetchFromFirebase();
+        // Eğer veri geldiyse tamamlandı olarak işaretle
+        if (_products.isNotEmpty) {
+          await prefs.setBool('firebase_initial_sync_done', true);
+        }
+      }
+    } else {
+      // Eğer senkronizasyon önceden yapılmış sayılıyor ama hala verimiz yoksa
+      // (örneğin internet yokken giriş yapıldıysa), tekrar çekmeyi dene
+      if (_products.isEmpty) {
+        await fetchFromFirebase();
+      }
+    }
+    
     _isLoading = false;
     notifyListeners();
-
-    // İlk açılışta verileri Firebase'e bir kez senkronize etmeyi teklif edebiliriz
-    // veya otomatik yapabiliriz. Burada otomatik yapıyoruz:
-    if (prefs.getBool('firebase_initial_sync_done') != true) {
-      await syncExistingToFirestore();
-      await prefs.setBool('firebase_initial_sync_done', true);
-    }
   }
 
   Future<void> fetchFromFirebase() async {
@@ -107,6 +141,13 @@ class StockProvider extends ChangeNotifier {
       // Fetch Payments
       final paymentSnap = await _db.collection('payments').get();
       _payments = paymentSnap.docs.map((doc) => DebtPayment.fromMap(doc.data())).toList();
+
+      // Fetch Excel Data
+      final excelSnap = await _db.collection('settings').doc('excel_data').get();
+      if (excelSnap.exists) {
+        final map = excelSnap.data() as Map<String, dynamic>;
+        _excelDataMap = map.map((key, value) => MapEntry(key, Map<String, double>.from(value)));
+      }
 
       await _saveData();
       debugPrint("Data fetched from Firebase successfully (${_products.length} products found)");
@@ -368,6 +409,8 @@ class StockProvider extends ChangeNotifier {
         }
         
         await _saveData();
+        // Firebase'e de yükle ki tüm kullanıcılar görebilsin
+        await _db.collection('settings').doc('excel_data').set(_excelDataMap);
         notifyListeners();
         return "$importedCount ürün yüklendi ($priceFoundCount tanesinde alış fiyatı bulundu).";
       }

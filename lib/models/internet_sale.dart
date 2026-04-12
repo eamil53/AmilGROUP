@@ -23,6 +23,7 @@ class InternetSale {
   bool isOldInternetCanceled;
   final String description;
   final DateTime createdAt;
+  final String monthId;
 
   InternetSale({
     required this.id,
@@ -41,7 +42,7 @@ class InternetSale {
     this.isOldInternetCanceled = false,
     required this.description,
     required this.createdAt,
-  });
+  }) : monthId = "${date.year}-${date.month.toString().padLeft(2, '0')}";
 
   Map<String, dynamic> toMap() {
     return {
@@ -61,6 +62,7 @@ class InternetSale {
       'isOldInternetCanceled': isOldInternetCanceled,
       'description': description,
       'createdAt': createdAt.toIso8601String(),
+      'monthId': monthId,
     };
   }
 

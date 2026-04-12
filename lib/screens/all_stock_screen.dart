@@ -198,20 +198,21 @@ class _AllStockScreenState extends State<AllStockScreen> {
     return Scaffold(
       backgroundColor: AppTheme.background,
       appBar: AppBar(
-        title: const Text('Tüm Stok Listesi'),
+        title: const Text('PORT Merkezi Stok'),
+        elevation: 0,
         actions: [
           IconButton(
             icon: Stack(
               children: [
-                const Icon(Icons.filter_list_rounded),
-                if (_selectedCategory != null || _selectedPurchaseType != null || _showOnlyLowStock)
+                const Icon(Icons.tune_rounded),
+                if (_selectedCategory != null || _selectedPurchaseType != null || _showOnlyLowStock || _selectedBrand != null || _selectedModel != null)
                   Positioned(
                     right: 0,
                     top: 0,
                     child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle),
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(color: Colors.red, border: Border.all(color: Colors.white, width: 2), shape: BoxShape.circle),
                     ),
                   ),
               ],
@@ -219,28 +220,28 @@ class _AllStockScreenState extends State<AllStockScreen> {
             onPressed: _showFilterBottomSheet,
             tooltip: 'Filtrele',
           ),
-          IconButton(
-            icon: const Icon(Icons.delete_sweep_rounded),
-            onPressed: () => _confirmResetAll(context),
-            tooltip: 'Tüm Veriyi Sıfırla',
-          ),
           const SizedBox(width: 8),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(70),
+          preferredSize: const Size.fromHeight(80),
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-            child: TextField(
-              onChanged: (val) => setState(() => _searchQuery = val),
-              decoration: InputDecoration(
-                hintText: 'Stokta ara (Marka, Model, IMEI)...',
-                prefixIcon: const Icon(Icons.search, color: AppTheme.ttBlue),
-                fillColor: Colors.white,
-                filled: true,
-                contentPadding: const EdgeInsets.symmetric(vertical: 0),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide.none,
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [
+                  BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 5)),
+                ],
+              ),
+              child: TextField(
+                onChanged: (val) => setState(() => _searchQuery = val),
+                decoration: InputDecoration(
+                  hintText: 'Stokta ara (Marka, Model, IMEI)...',
+                  prefixIcon: const Icon(Icons.search, color: AppTheme.ttBlue),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
                 ),
               ),
             ),
@@ -251,6 +252,12 @@ class _AllStockScreenState extends State<AllStockScreen> {
         bottom: true,
         child: Consumer<StockProvider>(
           builder: (context, provider, child) {
+            final allBrands = provider.products
+                .map((p) => p.brand.toUpperCase().trim())
+                .toSet()
+                .toList()
+              ..sort();
+
             var filteredProducts = provider.searchProducts(_searchQuery);
             
             // Apply additional filters
@@ -270,47 +277,28 @@ class _AllStockScreenState extends State<AllStockScreen> {
               filteredProducts = filteredProducts.where((p) => provider.getTotalQuantity(p.brand, p.model) <= provider.lowStockThreshold).toList();
             }
 
-            if (filteredProducts.isEmpty) {
-              return Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(Icons.filter_list_off_rounded, size: 60, color: Colors.grey[400]),
-                    const SizedBox(height: 16),
-                    Text('Kriterlere uygun ürün bulunamadı', 
-                      style: TextStyle(color: Colors.grey[600], fontSize: 16)),
-                    if (_selectedCategory != null || _selectedPurchaseType != null || _showOnlyLowStock || 
-                        _searchQuery.isNotEmpty || _selectedBrand != null || _selectedModel != null)
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _selectedCategory = null;
-                            _selectedPurchaseType = null;
-                            _selectedBrand = null;
-                            _selectedModel = null;
-                            _showOnlyLowStock = false;
-                            _searchQuery = '';
-                          });
-                        }, 
-                        child: const Text('Filtreleri Temizle')
+            return Column(
+              children: [
+                _buildQuickBrandFilters(allBrands),
+                Expanded(
+                  child: filteredProducts.isEmpty 
+                    ? _buildNoResults() 
+                    : ListView.builder(
+                        itemCount: filteredProducts.length,
+                        padding: const EdgeInsets.only(top: 4, bottom: 80),
+                        itemBuilder: (context, index) {
+                          final product = filteredProducts[index];
+                          return _buildCompactProductRow(context, product);
+                        },
                       ),
-                  ],
                 ),
-              );
-            }
-
-            return ListView.builder(
-              itemCount: filteredProducts.length,
-              padding: const EdgeInsets.only(top: 8, bottom: 80),
-              itemBuilder: (context, index) {
-                final product = filteredProducts[index];
-                return _buildCompactProductRow(context, product);
-              },
+              ],
             );
           },
         ),
       ),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: null,
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddProductScreen())),
         label: const Text('Yeni Ürün Ekle'),
         icon: const Icon(Icons.add),
@@ -322,117 +310,209 @@ class _AllStockScreenState extends State<AllStockScreen> {
   Widget _buildCompactProductRow(BuildContext context, Product product) {
     final provider = context.read<StockProvider>();
     bool isLowStock = provider.getTotalQuantity(product.brand, product.model) <= provider.lowStockThreshold;
+    Color categoryColor = _getCategoryColor(product.category);
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+      margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Colors.black.withOpacity(0.02),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
           ),
         ],
-        border: Border.all(
-          color: isLowStock ? Colors.red.withOpacity(0.1) : Colors.transparent,
-        ),
       ),
-      child: Theme(
-        data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-        child: ExpansionTile(
-          tilePadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-          leading: Container(
-            width: 48,
-            height: 48,
-            decoration: BoxDecoration(
-              color: _getCategoryColor(product.category).withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              _getCategoryIcon(product.category),
-              color: _getCategoryColor(product.category),
-              size: 24,
-            ),
-          ),
-          title: Text(
-            '${product.brand} ${product.model}',
-            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15),
-          ),
-          subtitle: Row(
-            children: [
-              if (product.color != null) ...[
-                Text(product.color!, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                const Padding(
-                  padding: EdgeInsets.symmetric(horizontal: 4.0),
-                  child: Text('•', style: TextStyle(color: Colors.grey, fontSize: 12)),
-                ),
-              ],
-              Text('Adet: ${product.quantity}', 
-                style: TextStyle(color: isLowStock ? Colors.red : Colors.green, fontSize: 12, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          trailing: Text(
-            _currencyFormat.format(product.salePrice),
-            style: const TextStyle(color: AppTheme.ttBlue, fontWeight: FontWeight.bold),
-          ),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-              child: Column(
-                children: [
-                  const Divider(height: 1),
-                  const SizedBox(height: 12),
-                  _buildDetailRow('IMEI 1:', product.imei1 ?? '-'),
-                  _buildDetailRow('Geliş Fiyatı:', _currencyFormat.format(product.purchasePrice)),
-                  _buildDetailRow('Satış Fiyatı:', _currencyFormat.format(product.salePrice)),
-                  _buildDetailRow(
-                    'Kar (Birim):', 
-                    _currencyFormat.format(product.salePrice - product.purchasePrice),
-                    isProfit: true,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _showProductQuickDetail(context, product),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: categoryColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
+                  child: Icon(
+                    _getCategoryIcon(product.category),
+                    color: categoryColor,
+                    size: 20,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      IconButton(
-                        onPressed: () => _confirmDelete(context, product),
-                        icon: const Icon(Icons.delete_outline, color: Colors.red),
-                        tooltip: 'Ürünü Sil',
+                      Text(
+                        '${product.brand} ${product.model}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, letterSpacing: -0.5),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      Expanded(
-                        child: OutlinedButton.icon(
-                          onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AddProductScreen(productToEdit: product))),
-                          icon: const Icon(Icons.edit, size: 18),
-                          label: const Text('Düzenle'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppTheme.ttBlue,
-                            side: const BorderSide(color: AppTheme.ttBlue),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: () {
-                            if (product.quantity > 0) {
-                              _showSellModal(context, product);
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Stokta ürün yok!')));
-                            }
-                          },
-                          icon: const Icon(Icons.sell, size: 18),
-                          label: const Text('SAT'),
-                          style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                        ),
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          if (product.color != null) ...[
+                             Text(product.color!, style: TextStyle(color: Colors.grey[500], fontSize: 10)),
+                             const SizedBox(width: 6),
+                          ],
+                          _buildStockBadge(product.quantity, isLowStock),
+                        ],
                       ),
                     ],
                   ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      _currencyFormat.format(product.salePrice),
+                      style: const TextStyle(color: AppTheme.ttBlue, fontWeight: FontWeight.w900, fontSize: 12),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      product.purchaseType == PurchaseType.vadeli ? "VADELİ" : "NAKİT",
+                      style: TextStyle(color: product.purchaseType == PurchaseType.vadeli ? AppTheme.ttMagenta : Colors.orange, fontSize: 8, fontWeight: FontWeight.bold, letterSpacing: 0.5),
+                    ),
+                  ],
+                ),
+                const SizedBox(width: 4),
+                Icon(Icons.chevron_right_rounded, color: Colors.grey[200], size: 18),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStockBadge(int quantity, bool isLowStock) {
+    Color color = isLowStock ? Colors.red : Colors.green[600]!;
+    return Row(
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 4),
+        Text(
+          '$quantity Adet',
+          style: TextStyle(
+            color: color,
+            fontSize: 11,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    );
+  }
+
+  void _showProductQuickDetail(BuildContext context, Product product) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+        ),
+        padding: EdgeInsets.fromLTRB(24, 12, 24, 24 + MediaQuery.of(context).padding.bottom),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey[200], borderRadius: BorderRadius.circular(2))),
+              const SizedBox(height: 24),
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _getCategoryColor(product.category).withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Icon(_getCategoryIcon(product.category), color: _getCategoryColor(product.category), size: 32),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(product.brand, style: TextStyle(color: Colors.grey[500], fontSize: 14)),
+                        Text(product.model, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: -0.5)),
+                      ],
+                    ),
+                  ),
                 ],
               ),
-            ),
-          ],
+              const SizedBox(height: 30),
+              _buildDetailRowFull('IMEI 1', product.imei1 ?? '-'),
+              _buildDetailRowFull('IMEI 2', product.imei2 ?? '-'),
+              _buildDetailRowFull('Seri No', product.serialNumber ?? '-'),
+              const Divider(height: 32),
+              _buildDetailRowFull('Alış Fiyatı', _currencyFormat.format(product.purchasePrice)),
+              _buildDetailRowFull('Satış Fiyatı', _currencyFormat.format(product.salePrice), isBold: true),
+              _buildDetailRowFull('Tahmini Kâr', _currencyFormat.format(product.salePrice - product.purchasePrice), color: Colors.green),
+              const SizedBox(height: 40),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => AddProductScreen(productToEdit: product))),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        side: BorderSide(color: Colors.grey[300]!),
+                      ),
+                      child: Text('DÜZENLE', style: TextStyle(color: Colors.grey[700], fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        if (product.quantity > 0) _showSellModal(context, product);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.ttMagenta,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                        elevation: 0,
+                      ),
+                      child: const Text('HIZLI SAT', style: TextStyle(fontWeight: FontWeight.bold)),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildDetailRowFull(String label, String value, {bool isBold = false, Color? color}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.0),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 14)),
+          Text(value, style: TextStyle(fontWeight: isBold ? FontWeight.bold : FontWeight.w600, fontSize: 15, color: color)),
+        ],
       ),
     );
   }
@@ -604,6 +684,71 @@ class _AllStockScreenState extends State<AllStockScreen> {
     );
   }
 
+  Widget _buildQuickBrandFilters(List<String> brands) {
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: ListView.builder(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        itemCount: brands.length + 1,
+        itemBuilder: (context, index) {
+          final isAll = index == 0;
+          final brand = isAll ? 'HEPSİ' : brands[index - 1];
+          final isSelected = isAll ? _selectedBrand == null : _selectedBrand == brand;
+
+          return Padding(
+            padding: const EdgeInsets.only(right: 8),
+            child: ChoiceChip(
+              label: Text(brand),
+              selected: isSelected,
+              onSelected: (selected) {
+                setState(() {
+                  _selectedBrand = isAll ? null : (selected ? brand : null);
+                  _selectedModel = null; // Reset model when brand changes
+                });
+              },
+              selectedColor: AppTheme.ttBlue,
+              labelStyle: TextStyle(
+                color: isSelected ? Colors.white : Colors.grey[600],
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+              ),
+              backgroundColor: Colors.grey[100],
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12), side: BorderSide.none),
+              showCheckmark: false,
+            ),
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildNoResults() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(Icons.search_off_rounded, size: 64, color: Colors.grey[200]),
+          const SizedBox(height: 16),
+          Text('Ürün bulunamadı', style: TextStyle(color: Colors.grey[400], fontSize: 16)),
+          const SizedBox(height: 8),
+          TextButton(
+            onPressed: () => setState(() {
+              _selectedBrand = null;
+              _selectedModel = null;
+              _selectedCategory = null;
+              _selectedPurchaseType = null;
+              _showOnlyLowStock = false;
+              _searchQuery = '';
+            }),
+            child: const Text('Tüm Filtreleri Temizle'),
+          ),
+        ],
+      ),
+    );
   void _confirmResetAll(BuildContext context) {
     showDialog(
       context: context,
@@ -624,4 +769,5 @@ class _AllStockScreenState extends State<AllStockScreen> {
       ),
     );
   }
+}
 }

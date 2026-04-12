@@ -30,20 +30,19 @@ class _ProductListScreenState extends State<ProductListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('PORT Stok'),
+        title: const Text('PORT Stok Yönetimi'),
+        elevation: 0,
         actions: [
           IconButton(
-            icon: const Icon(Icons.picture_as_pdf),
-            tooltip: 'PDF Olarak İndir',
+            icon: const Icon(Icons.picture_as_pdf_outlined),
+            tooltip: 'PDF Raporu',
             onPressed: () {
               final provider = context.read<StockProvider>();
               if (provider.products.isNotEmpty) {
                 PdfHelper.generateStockPdf(provider.products);
               } else {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Lokalde indirilecek ürün bulunamadı.'),
-                  ),
+                  const SnackBar(content: Text('Lokalde indirilecek ürün bulunamadı.')),
                 );
               }
             },
@@ -51,24 +50,31 @@ class _ProductListScreenState extends State<ProductListScreen> {
           const SizedBox(width: 8),
         ],
         bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(80),
+          preferredSize: const Size.fromHeight(70),
           child: Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 12.0,
-            ),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Marka, Model veya IMEI Ara...',
-                prefixIcon: const Icon(Icons.search),
-                fillColor: Colors.white,
-                filled: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(30),
-                  borderSide: BorderSide.none,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: Container(
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.9),
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: TextField(
+                onChanged: (value) => setState(() => _searchQuery = value),
+                decoration: InputDecoration(
+                  hintText: 'Marka, Model veya IMEI Ara...',
+                  prefixIcon: const Icon(Icons.search, color: AppTheme.ttBlue),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                  hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
                 ),
               ),
-              onChanged: (value) => setState(() => _searchQuery = value),
             ),
           ),
         ),
@@ -159,99 +165,188 @@ class _ProductListScreenState extends State<ProductListScreen> {
 
   Widget _buildProductCard(BuildContext context, Product product) {
     IconData icon = Icons.device_unknown;
-    if (product.category == ProductCategory.phone)
-      icon = Icons.phone_android;
-    else if (product.category == ProductCategory.headset)
-      icon = Icons.headphones;
-    else if (product.category == ProductCategory.watch) {
-      icon = Icons.watch;
-    } else if (product.category == ProductCategory.modem) {
-      icon = Icons.router;
-    } else if (product.category == ProductCategory.demo) {
-      icon = Icons.stars_rounded;
-    } else if (product.category == ProductCategory.returned) {
-      icon = Icons.assignment_return_rounded;
-    }
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: ExpansionTile(
-        leading: CircleAvatar(
-          backgroundColor: AppTheme.ttBlue.withOpacity(0.1),
-          child: Icon(icon, color: AppTheme.ttBlue, size: 20),
-        ),
-        title: Text(
-          '${product.brand} ${product.model}',
-          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-        ),
-        subtitle: Text(
-          'Renk: ${product.color ?? '-'} | Adet: ${product.quantity} | Satış: ${format.format(product.salePrice)}',
-          style: const TextStyle(color: Colors.grey, fontSize: 12),
-        ),
-        childrenPadding: const EdgeInsets.all(16),
-        children: [
-          _buildDetailRow('Geliş Fiyatı:', format.format(product.purchasePrice)),
-          _buildDetailRow('Satış Fiyatı:', format.format(product.salePrice)),
-          _buildDetailRow(
-            'Kar (Birim):',
-            format.format(product.salePrice - product.purchasePrice),
+    Color iconColor = AppTheme.ttBlue;
+    
+    if (product.category == ProductCategory.phone) icon = Icons.phone_android;
+    else if (product.category == ProductCategory.headset) icon = Icons.headphones;
+    else if (product.category == ProductCategory.watch) icon = Icons.watch;
+    else if (product.category == ProductCategory.modem) icon = Icons.router;
+    else if (product.category == ProductCategory.demo) { icon = Icons.stars_rounded; iconColor = Colors.orange; }
+    else if (product.category == ProductCategory.returned) { icon = Icons.assignment_return_rounded; iconColor = Colors.red; }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.04),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          const Divider(),
-          _buildDetailRow('Renk:', product.color ?? '-'),
-          _buildDetailRow('IMEI 1:', product.imei1 ?? '-'),
-          _buildDetailRow('IMEI 2:', product.imei2 ?? '-'),
-          _buildDetailRow('Seri No:', product.serialNumber ?? '-'),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => _confirmDelete(context, product),
-                  icon: const Icon(
-                    Icons.delete_outline,
-                    size: 18,
-                    color: Colors.grey,
-                  ),
-                  label: const Text('Sil', style: TextStyle(color: Colors.grey)),
-                  style: OutlinedButton.styleFrom(
-                    side: BorderSide(color: Colors.grey[200]!),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(20),
+        child: Theme(
+          data: Theme.of(context).copyWith(dividerColor: Colors.transparent, splashColor: Colors.transparent),
+          child: ExpansionTile(
+            leading: Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(icon, color: iconColor, size: 24),
+            ),
+            title: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '${product.brand} ${product.model}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, letterSpacing: -0.2),
                   ),
                 ),
+                _buildStockStatusBadge(product.quantity),
+              ],
+            ),
+            subtitle: Padding(
+              padding: const EdgeInsets.only(top: 4),
+              child: Row(
+                children: [
+                  Text(
+                    format.format(product.salePrice),
+                    style: const TextStyle(color: AppTheme.ttBlue, fontWeight: FontWeight.bold, fontSize: 13),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    '| ${product.color ?? "-"}',
+                    style: TextStyle(color: Colors.grey[500], fontSize: 12),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: () => Navigator.push(
+            ),
+            childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+            children: [
+              const Divider(height: 1),
+              const SizedBox(height: 12),
+              _buildModernDetailRow('Alış Fiyatı', format.format(product.purchasePrice)),
+              _buildModernDetailRow('Satış Fiyatı', format.format(product.salePrice)),
+              _buildModernDetailRow(
+                'Tahmini Kâr', 
+                format.format(product.salePrice - product.purchasePrice),
+                valueColor: Colors.green[700],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.grey[50],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    _buildCompactDetailRow('IMEI 1', product.imei1 ?? '-'),
+                    _buildCompactDetailRow('IMEI 2', product.imei2 ?? '-'),
+                    _buildCompactDetailRow('Seri No', product.serialNumber ?? '-'),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  _actionIconButton(Icons.delete_outline, Colors.red, () => _confirmDelete(context, product)),
+                  const SizedBox(width: 8),
+                  _actionIconButton(Icons.edit_outlined, AppTheme.ttBlue, () => Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (_) => AddProductScreen(productToEdit: product),
+                    MaterialPageRoute(builder: (_) => AddProductScreen(productToEdit: product)),
+                  )),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: product.quantity > 0 ? () => _showSellModal(context, product) : null,
+                      icon: const Icon(Icons.shopping_cart_checkout_outlined, size: 18),
+                      label: const Text('HIZLI SATIŞ', style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 0.5)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.ttMagenta,
+                        foregroundColor: Colors.white,
+                        elevation: 0,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
                     ),
                   ),
-                  icon: const Icon(Icons.edit, size: 18, color: AppTheme.ttBlue),
-                  label: const Text(
-                    'Düzenle',
-                    style: TextStyle(color: AppTheme.ttBlue),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppTheme.ttBlue),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: product.quantity > 0
-                      ? () => _showSellModal(context, product)
-                      : null,
-                  icon: const Icon(Icons.sell, size: 18),
-                  label: const Text('SAT'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[600],
-                  ),
-                ),
+                ],
               ),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStockStatusBadge(int quantity) {
+    Color color = Colors.green;
+    String label = 'STOKTA';
+    if (quantity <= 0) {
+      color = Colors.red;
+      label = 'YOK';
+    } else if (quantity <= 2) {
+      color = Colors.orange;
+      label = 'AZ';
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Text(
+        '$quantity $label',
+        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  Widget _buildModernDetailRow(String label, String value, {Color? valueColor}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
+          Text(value, style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: valueColor)),
         ],
+      ),
+    );
+  }
+
+  Widget _buildCompactDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          Text('$label: ', style: TextStyle(color: Colors.grey[500], fontSize: 11)),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 11)),
+        ],
+      ),
+    );
+  }
+
+  Widget _actionIconButton(IconData icon, Color color, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Icon(icon, color: color, size: 20),
       ),
     );
   }

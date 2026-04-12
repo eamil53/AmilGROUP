@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
@@ -8,82 +9,95 @@ class InternetSaleProvider extends ChangeNotifier {
   final _db = FirebaseFirestore.instance;
   List<InternetSale> _sales = [];
   bool _isLoading = true;
+  StreamSubscription? _subscription;
+  
+  // Varsayılan olarak şu anki ayı seç
+  String _selectedMonth = "${DateTime.now().year}-${DateTime.now().month.toString().padLeft(2, '0')}";
 
   List<InternetSale> get sales => _sales;
   bool get isLoading => _isLoading;
+  String get selectedMonth => _selectedMonth;
 
   InternetSaleProvider() {
-    _loadData();
+    _initFirestoreStream();
   }
 
-  Future<void> _loadData() async {
+  void _initFirestoreStream() {
+    _subscription?.cancel();
     _isLoading = true;
     notifyListeners();
 
-    final prefs = await SharedPreferences.getInstance();
-    
-    // First try to load from Firestore for real-time sync
-    try {
-      final snapshot = await _db.collection('internet_sales').get();
+    // Seçili aya göre dinleme işlemi
+    _subscription = _db
+        .collection('internet_sales')
+        .doc(_selectedMonth)
+        .collection('records')
+        .orderBy('date', descending: true)
+        .snapshots()
+        .listen((snapshot) {
       _sales = snapshot.docs.map((doc) => InternetSale.fromMap(doc.data())).toList();
-      
-      // Update local storage
-      await prefs.setString('internet_sales', json.encode(_sales.map((e) => e.toMap()).toList()));
-    } catch (e) {
-      debugPrint("Firestore load failed, using local: $e");
-      // Fallback to local
-      final String? jsonStr = prefs.getString('internet_sales');
-      if (jsonStr != null) {
-        final List<dynamic> decoded = json.decode(jsonStr);
-        _sales = decoded.map((e) => InternetSale.fromMap(e)).toList();
-      }
-    }
-
-    _isLoading = false;
-    notifyListeners();
+      _isLoading = false;
+      notifyListeners();
+    }, onError: (e) {
+      debugPrint("InternetSale Stream Error: $e");
+      _isLoading = false;
+      notifyListeners();
+    });
   }
 
-  Future<void> _saveToLocal() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('internet_sales', json.encode(_sales.map((e) => e.toMap()).toList()));
+  void setMonth(String monthId) {
+    if (_selectedMonth != monthId) {
+      _selectedMonth = monthId;
+      _initFirestoreStream();
+    }
+  }
+
+  @override
+  void dispose() {
+    _subscription?.cancel();
+    super.dispose();
   }
 
   Future<void> addSale(InternetSale sale) async {
-    _sales.add(sale);
-    await _saveToLocal();
-    notifyListeners();
-
     try {
-      await _db.collection('internet_sales').doc(sale.id).set(sale.toMap());
+      // Ay bazında dokümantasyon yoluna kaydet
+      await _db
+          .collection('internet_sales')
+          .doc(sale.monthId)
+          .collection('records')
+          .doc(sale.id)
+          .set(sale.toMap());
     } catch (e) {
-      debugPrint("Firebase sync failed: $e");
+      debugPrint("Firebase add failed: $e");
+      rethrow;
     }
   }
 
   Future<void> updateSale(InternetSale sale) async {
-    final index = _sales.indexWhere((s) => s.id == sale.id);
-    if (index != -1) {
-      _sales[index] = sale;
-      await _saveToLocal();
-      notifyListeners();
-
-      try {
-        await _db.collection('internet_sales').doc(sale.id).set(sale.toMap());
-      } catch (e) {
-        debugPrint("Firebase update failed: $e");
-      }
+    try {
+      await _db
+          .collection('internet_sales')
+          .doc(sale.monthId)
+          .collection('records')
+          .doc(sale.id)
+          .set(sale.toMap());
+    } catch (e) {
+      debugPrint("Firebase update failed: $e");
+      rethrow;
     }
   }
 
   Future<void> deleteSale(String id) async {
-    _sales.removeWhere((s) => s.id == id);
-    await _saveToLocal();
-    notifyListeners();
-
     try {
-      await _db.collection('internet_sales').doc(id).delete();
+      await _db
+          .collection('internet_sales')
+          .doc(_selectedMonth)
+          .collection('records')
+          .doc(id)
+          .delete();
     } catch (e) {
       debugPrint("Firebase delete failed: $e");
+      rethrow;
     }
   }
 
@@ -96,10 +110,5 @@ class InternetSaleProvider extends ChangeNotifier {
       map[sale.sellerName] = (map[sale.sellerName] ?? 0) + 1;
     }
     return map;
-  }
-
-  double monthlyGrowth() {
-    // Basic placeholder for growth logic
-    return 15.5; 
   }
 }
