@@ -10,7 +10,8 @@ import '../providers/target_provider.dart';
 import '../models/target.dart';
 
 class InternetSaleEntryScreen extends StatefulWidget {
-  const InternetSaleEntryScreen({super.key});
+  final InternetSale? initialSale;
+  const InternetSaleEntryScreen({super.key, this.initialSale});
 
   @override
   State<InternetSaleEntryScreen> createState() => _InternetSaleEntryScreenState();
@@ -42,6 +43,22 @@ class _InternetSaleEntryScreenState extends State<InternetSaleEntryScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.initialSale != null) {
+      final sale = widget.initialSale!;
+      _tcController.text = sale.customerTc;
+      _nameController.text = sale.customerFullName;
+      _xdslController.text = sale.xdslNo;
+      _accountController.text = sale.accountNo;
+      _phoneController.text = sale.phoneNo;
+      _descriptionController.text = sale.description;
+      _selectedDate = sale.date;
+      _status = sale.status;
+      _hasOldInternet = sale.hasOldInternet;
+      _selectedCampaign = sale.campaign;
+      _selectedSpeed = sale.speed;
+      _selectedSeller = sale.sellerName;
+      _selectedSoldUser = sale.soldUser;
+    }
   }
 
   @override
@@ -90,7 +107,7 @@ class _InternetSaleEntryScreenState extends State<InternetSaleEntryScreen> {
       }
       
       final newSale = InternetSale(
-        id: const Uuid().v4(),
+        id: widget.initialSale?.id ?? const Uuid().v4(),
         customerTc: _tcController.text,
         customerFullName: _nameController.text,
         date: _selectedDate,
@@ -104,10 +121,15 @@ class _InternetSaleEntryScreenState extends State<InternetSaleEntryScreen> {
         status: _status,
         hasOldInternet: _hasOldInternet,
         description: _descriptionController.text,
-        createdAt: DateTime.now(),
+        createdAt: widget.initialSale?.createdAt ?? DateTime.now(),
       );
 
-      Provider.of<InternetSaleProvider>(context, listen: false).addSale(newSale);
+      final saleProvider = Provider.of<InternetSaleProvider>(context, listen: false);
+      if (widget.initialSale != null) {
+        saleProvider.updateSale(newSale);
+      } else {
+        saleProvider.addSale(newSale);
+      }
       
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -144,7 +166,7 @@ class _InternetSaleEntryScreenState extends State<InternetSaleEntryScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF0F2F5),
       appBar: AppBar(
-        title: const Text('Yeni İnternet Satışı Girişi'),
+        title: Text(widget.initialSale != null ? 'Satış Kaydını Düzenle' : 'Yeni İnternet Satışı Girişi'),
         actions: [
           IconButton(
             onPressed: _saveForm,

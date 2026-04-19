@@ -82,7 +82,6 @@ class _DebtManagementScreenState extends State<DebtManagementScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('PORT Vadeli Borç Yönetimi')),
       body: SafeArea(
-        bottom: true,
         child: Column(
           children: [
             _buildDebtHeader(provider, currencyFormat),

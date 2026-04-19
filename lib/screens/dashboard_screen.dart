@@ -21,6 +21,8 @@ import 'personnel_management_screen.dart';
 import '../models/app_user.dart';
 import '../providers/auth_provider.dart';
 import '../providers/ui_provider.dart';
+import '../providers/target_provider.dart';
+import '../models/target.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -165,9 +167,9 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           ),
         ),
       ),
-      body: Consumer2<StockProvider, AuthProvider>(
-        builder: (context, provider, auth, child) {
-          if (provider.isLoading || auth.isLoading)
+      body: Consumer3<StockProvider, AuthProvider, TargetProvider>(
+        builder: (context, provider, auth, targetProvider, child) {
+          if (provider.isLoading || auth.isLoading || targetProvider.isLoading)
             return _buildShimmerLoading();
 
           final counts = provider.getCategoryCounts();
@@ -182,42 +184,31 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
               await provider.syncExistingToFirestore();
             },
             child: SafeArea(
-              bottom: true,
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(20.0),
                 physics: const AlwaysScrollableScrollPhysics(),
-            child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _buildImmersiveHeader(user?.name ?? ''),
-                  const SizedBox(height: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildImmersiveHeader(user.name ?? ''),
+                    const SizedBox(height: 16),
 
-                  if (user.isAdmin || user.canAccess('all_stock'))
-                    _buildMainSummaryCard(
-                      context,
-                      provider.totalStock.toString(),
-                      'PORT TOPLAM STOK',
-                      AppTheme.ttBlue,
-                      Icons.inventory_2_rounded,
-                      () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AllStockScreen())),
-                    ),
+                    // YENİ: Hedef & Performans Kartı (En Üstte) - Artık tek ana kart
+                    if (user.isAdmin || user.canAccess('target_report')) ...[
+                      _buildTargetPerformanceStatus(context, targetProvider),
+                    ],
 
-                  const SizedBox(height: 24),
+                    const SizedBox(height: 24),
 
-                  if (user.isAdmin || user.canViewProfits()) ...[
-                    const _SectionHeader(title: 'Finansal Özet'),
-                    const SizedBox(height: 12),
-                    _buildStatsHub(context, provider, currencyFormat),
-                  ],
+                    if (user.isAdmin || user.canViewProfits()) ...[
+                      const _SectionHeader(title: 'Finansal Özet'),
+                      const SizedBox(height: 12),
+                      _buildStatsHub(context, provider, currencyFormat),
+                    ],
 
-                  if (lowStockCount > 0 && (user.isAdmin || user.canAccess('critical_stock'))) ...[
-                    const SizedBox(height: 20),
-                    _buildCriticalAlertBox(context, lowStockCount),
-                  ],
-
-                  const SizedBox(height: 32),
-                  const _SectionHeader(title: 'Operasyonel Merkez', subtitle: 'Hızlı işlemler ve yönetim'),
-                  const SizedBox(height: 16),
+                    const SizedBox(height: 32),
+                    const _SectionHeader(title: 'Operasyonel Merkez', subtitle: 'Hızlı işlemler ve yönetim'),
+                    const SizedBox(height: 16),
                   
                   Consumer<UIProvider>(
                     builder: (context, uiProvider, child) {
@@ -759,6 +750,233 @@ class _DashboardScreenState extends State<DashboardScreen> with SingleTickerProv
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildTargetPerformanceStatus(BuildContext context, TargetProvider provider) {
+    final now = DateTime.now();
+    final achievementRatio = provider.getDealerTotalAchievementPercentage(now);
+    
+    // Geçen gün oranı
+    final daysInMonth = DateTime(now.year, now.month + 1, 0).day;
+    final currentDay = now.day;
+    final timeRatio = (currentDay / daysInMonth) * 100;
+    
+    Color statusColor;
+    String statusText;
+    IconData statusIcon;
+
+    if (achievementRatio >= timeRatio) {
+      statusColor = Colors.green;
+      statusText = 'HEDEFE UYGUN';
+      statusIcon = Icons.trending_up;
+    } else if (achievementRatio >= timeRatio * 0.7) {
+      statusColor = Colors.orange;
+      statusText = 'DİKKAT: GERİDE';
+      statusIcon = Icons.trending_flat;
+    } else {
+      statusColor = Colors.red;
+      statusText = 'RİSKLİ DURUM';
+      statusIcon = Icons.trending_down;
+    }
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(20),
+      elevation: 4,
+      shadowColor: statusColor.withOpacity(0.2),
+      child: InkWell(
+        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TargetReportScreen())),
+        borderRadius: BorderRadius.circular(20),
+        child: Container(
+          padding: const EdgeInsets.all(20),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            gradient: LinearGradient(
+              colors: [statusColor.withOpacity(0.05), Colors.white],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            border: Border.all(color: statusColor.withOpacity(0.2), width: 1.5),
+          ),
+          child: Column(
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'AYLIK HEDEF PERFORMANSI',
+                        style: TextStyle(
+                          color: Colors.grey[600],
+                          fontSize: 10,
+                          fontWeight: FontWeight.w900,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        DateFormat('MMMM yyyy', 'tr_TR').format(now).toUpperCase(),
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.ttBlue,
+                        ),
+                      ),
+                    ],
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                    decoration: BoxDecoration(
+                      color: statusColor,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      children: [
+                        Icon(statusIcon, color: Colors.white, size: 14),
+                        const SizedBox(width: 4),
+                        Text(
+                          statusText,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            Text(
+                              '%${achievementRatio.toStringAsFixed(1)} Gerçekleşti',
+                              style: TextStyle(
+                                fontSize: 24,
+                                fontWeight: FontWeight.w900,
+                                color: statusColor,
+                              ),
+                            ),
+                            Text(
+                              'Zaman: %${timeRatio.toStringAsFixed(0)}',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.grey[500],
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Stack(
+                          children: [
+                            Container(
+                              height: 10,
+                              width: double.infinity,
+                              decoration: BoxDecoration(
+                                color: Colors.grey[100],
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                            ),
+                            FractionallySizedBox(
+                              widthFactor: (achievementRatio / 100).clamp(0, 1),
+                              child: Container(
+                                height: 10,
+                                decoration: BoxDecoration(
+                                  gradient: LinearGradient(
+                                    colors: [statusColor, statusColor.withOpacity(0.7)],
+                                  ),
+                                  borderRadius: BorderRadius.circular(5),
+                                  boxShadow: [
+                                    BoxShadow(
+                                      color: statusColor.withOpacity(0.3),
+                                      blurRadius: 4,
+                                      offset: const Offset(0, 2),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                            // Zaman göstergesi (küçük bir çizgi)
+                            Positioned(
+                              left: (MediaQuery.of(context).size.width - 80) * (timeRatio / 100),
+                              child: Container(
+                                height: 10,
+                                width: 2,
+                                color: Colors.black.withOpacity(0.3),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  _buildStatMini(
+                    'Mobil', 
+                    '${provider.getDealerAchievement(now, TargetType.mobilFaturali) + provider.getDealerAchievement(now, TargetType.mobilFaturasiz)}',
+                    Colors.orange,
+                  ),
+                  _buildStatMini(
+                    'İnternet', 
+                    '${provider.getDealerAchievement(now, TargetType.sabitInternet)}',
+                    Colors.cyan,
+                  ),
+                  _buildStatMini(
+                    'Tivibu', 
+                    '${provider.getDealerAchievement(now, TargetType.tivibuIptv) + provider.getDealerAchievement(now, TargetType.tivibuUydu)}',
+                    Colors.blue,
+                  ),
+                  _buildStatMini(
+                    'Cihaz', 
+                    '${provider.getDealerAchievement(now, TargetType.cihazAkilli) + provider.getDealerAchievement(now, TargetType.cihazDiger)}',
+                    Colors.green,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildStatMini(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(
+          value,
+          style: TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            color: color,
+          ),
+        ),
+        Text(
+          label,
+          style: TextStyle(
+            fontSize: 9,
+            color: Colors.grey[500],
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
   }
 

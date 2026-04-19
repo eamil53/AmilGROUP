@@ -1,9 +1,32 @@
+import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter/foundation.dart';
 
 class NotificationService {
   static final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+  static final FirebaseMessaging _messaging = FirebaseMessaging.instance;
 
   static Future<void> init() async {
+    // 1. Request permissions (especially for iOS)
+    NotificationSettings settings = await _messaging.requestPermission(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    // iOS Foreground settings
+    await _messaging.setForegroundNotificationPresentationOptions(
+      alert: true,
+      badge: true,
+      sound: true,
+    );
+
+    if (settings.authorizationStatus == AuthorizationStatus.authorized) {
+      debugPrint('User granted permission');
+    }
+
+    // 2. Local Notifications Setup
     const AndroidInitializationSettings initializationSettingsAndroid = AndroidInitializationSettings('@mipmap/ic_launcher');
     
     final DarwinInitializationSettings initializationSettingsDarwin = DarwinInitializationSettings(
@@ -23,6 +46,58 @@ class NotificationService {
         // notification response handle
       },
     );
+
+    // 3. FCM Foreground handling
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) async {
+      debugPrint('Got a message whilst in the foreground!');
+      
+      // Get my current token for suppression check
+      String? myToken = await _messaging.getToken();
+      
+      // Don't show notification if I was the sender
+      if (message.data['senderId'] == myToken) {
+        debugPrint('Suppressed notification from myself');
+        return;
+      }
+
+      if (message.notification != null) {
+        showLocalNotification(
+          message.notification!.title ?? 'Bildirim',
+          message.notification!.body ?? '',
+        );
+      }
+    });
+
+    // 4. Get FCM Token & Subscribe to Topics
+    try {
+      String? token = await _messaging.getToken();
+      debugPrint('FCM Token: $token');
+      
+      // Subscribe all users to 'targets' topic for collective notifications
+      await _messaging.subscribeToTopic('targets');
+      debugPrint('Subscribed to targets topic');
+    } catch (e) {
+      debugPrint('Error getting FCM token or subscribing: $e');
+    }
+
+    // 5. Removed local Firestore listener to prevent double notifications
+    // (We rely on Cloud Functions push notifications instead)
+  }
+
+  static Future<void> showLocalNotification(String title, String body) async {
+    const AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'general_channel',
+      'Genel Bildirimler',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const NotificationDetails details = NotificationDetails(android: androidDetails);
+    await _notificationsPlugin.show(
+      DateTime.now().millisecond,
+      title,
+      body,
+      details,
+    );
   }
 
   static Future<void> scheduleDailyDataEntryReminder() async {
@@ -37,8 +112,6 @@ class NotificationService {
 
     const NotificationDetails details = NotificationDetails(android: androidDetails);
 
-    // This is a simple periodic reminder (every day at a fixed interval if needed)
-    // For specific time-of-day, more complex logic is needed with TZ, but we can do a repeated snack/notif check
     await _notificationsPlugin.show(
       999,
       'Günlük Satış Verileri Girişi',

@@ -96,6 +96,13 @@ class _TargetEntryScreenState extends State<TargetEntryScreen> {
         );
       }
     }
+    
+    // İşlem bittikten sonra TEK BİR bildirim gönder
+    if (_isSettingTargets) {
+      provider.notifyTeam('Hedefler Güncellendi 🎯', '${_selectedDate.month}/${_selectedDate.year} dönemi hedefleri güncellendi.');
+    } else {
+      provider.notifyTeam('Satış Verileri Güncellendi 🚀', 'Performans ve satış verileri az önce güncellendi.');
+    }
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(

@@ -33,7 +33,6 @@ class _HakedisTakipScreenState extends State<HakedisTakipScreen> {
           }).toList();
 
           return SafeArea(
-            bottom: true,
             child: Column(
               children: [
                 _buildFilterHeader(),

@@ -92,7 +92,6 @@ class _SalesReportScreenState extends State<SalesReportScreen> {
         ],
       ),
       body: SafeArea(
-        bottom: true,
         child: SingleChildScrollView(
           child: Column(
             children: [

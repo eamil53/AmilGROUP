@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import '../models/target.dart';
 
@@ -65,6 +66,20 @@ class TargetProvider extends ChangeNotifier {
     // Predictable ID: personnelId_YYYYMM
     final docId = '${mt.personnelId}_${mt.month.year}${mt.month.month.toString().padLeft(2, '0')}';
     await _db.collection('monthly_targets').doc(docId).set(mt.toMap());
+  }
+
+  Future<void> notifyTeam(String title, String body) async {
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      await _db.collection('notifications').add({
+        'title': title,
+        'body': body,
+        'senderId': token, // Gönderen cihazın ID'si
+        'timestamp': FieldValue.serverTimestamp(),
+      });
+    } catch (e) {
+      debugPrint('Error sending notification: $e');
+    }
   }
 
   Future<void> addPersonnel(Personnel p) async {
@@ -175,5 +190,16 @@ class TargetProvider extends ChangeNotifier {
     final target = getTarget(pId, month, type);
     if (target == 0) return 0;
     return (getAchievement(pId, month, type) / target) * 100;
+  }
+
+  double getDealerTotalAchievementPercentage(DateTime month) {
+    int totalTarget = 0;
+    int totalAchieved = 0;
+    for (var type in TargetType.values) {
+      totalTarget += getDealerTarget(month, type);
+      totalAchieved += getDealerAchievement(month, type);
+    }
+    if (totalTarget == 0) return 0;
+    return (totalAchieved / totalTarget) * 100;
   }
 }
