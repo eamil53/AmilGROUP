@@ -249,7 +249,6 @@ class _AllStockScreenState extends State<AllStockScreen> {
         ),
       ),
       body: SafeArea(
-        bottom: true,
         child: Consumer<StockProvider>(
           builder: (context, provider, child) {
             final allBrands = provider.products

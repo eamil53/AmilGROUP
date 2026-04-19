@@ -24,7 +24,6 @@ class CriticalStockScreen extends StatelessWidget {
           }
 
           return SafeArea(
-            bottom: true,
             child: Column(
               children: [
                 _buildThresholdBanner(context, provider),

@@ -76,7 +76,6 @@ class _IDArchiveScreenState extends State<IDArchiveScreen> {
         ),
       ),
       body: SafeArea(
-        bottom: true,
         child: Consumer<IDProvider>(
           builder: (context, provider, child) {
             final filteredList = provider.searchIDs(_searchQuery);

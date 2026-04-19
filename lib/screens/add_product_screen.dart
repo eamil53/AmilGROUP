@@ -314,7 +314,6 @@ class _AddProductScreenState extends State<AddProductScreen> {
         ),
       ),
       body: SafeArea(
-        bottom: true,
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(20.0),
           child: Form(

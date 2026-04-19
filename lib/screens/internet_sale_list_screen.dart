@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/internet_sale.dart';
 import '../providers/internet_sale_provider.dart';
 import '../theme/app_theme.dart';
+import 'internet_sale_entry_screen.dart';
 
 class InternetSaleListScreen extends StatefulWidget {
   const InternetSaleListScreen({super.key});
@@ -14,11 +15,12 @@ class InternetSaleListScreen extends StatefulWidget {
 
 class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
   String _searchQuery = "";
+  InternetSaleStatus? _filterStatus;
 
   @override
   Widget build(BuildContext context) {
     final provider = Provider.of<InternetSaleProvider>(context);
-    
+
     // Ay ismini Türkçe olarak göster
     final currentMonthId = provider.selectedMonth;
     final year = currentMonthId.split('-')[0];
@@ -32,7 +34,14 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text('İnternet Satış Kayıtları'),
-            Text('$monthName $year Verileri', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w400, color: Colors.white70)),
+            Text(
+              '$monthName $year Verileri',
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w400,
+                color: Colors.white70,
+              ),
+            ),
           ],
         ),
         actions: [
@@ -46,16 +55,27 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
       body: Column(
         children: [
           _buildSearchBar(),
+          _buildFilterRow(),
+          const SizedBox(height: 8),
           Expanded(
             child: Consumer<InternetSaleProvider>(
               builder: (context, provider, child) {
-                if (provider.isLoading) return const Center(child: CircularProgressIndicator());
-                
+                if (provider.isLoading)
+                  return const Center(child: CircularProgressIndicator());
+
                 final filteredSales = provider.sales.where((s) {
+                  // Text Search
                   final search = _searchQuery.toLowerCase();
-                  return s.customerFullName.toLowerCase().contains(search) ||
-                         s.customerTc.contains(search) ||
-                         s.xdslNo.contains(search);
+                  final matchesSearch =
+                      s.customerFullName.toLowerCase().contains(search) ||
+                      s.customerTc.contains(search) ||
+                      s.xdslNo.contains(search);
+
+                  // Status Filter
+                  final matchesStatus =
+                      _filterStatus == null || s.status == _filterStatus;
+
+                  return matchesSearch && matchesStatus;
                 }).toList();
 
                 if (filteredSales.isEmpty) {
@@ -63,9 +83,16 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.inbox_outlined, size: 64, color: Colors.grey[300]),
+                        Icon(
+                          Icons.inbox_outlined,
+                          size: 64,
+                          color: Colors.grey[300],
+                        ),
                         const SizedBox(height: 16),
-                        Text('$monthName ayı için kayıt bulunamadı.', style: TextStyle(color: Colors.grey[500])),
+                        Text(
+                          '$monthName ayı için kayıt bulunamadı.',
+                          style: TextStyle(color: Colors.grey[500]),
+                        ),
                       ],
                     ),
                   );
@@ -89,8 +116,18 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
 
   String _getMonthName(int month) {
     const months = [
-      'Ocak', 'Şubat', 'Mart', 'Nisan', 'Mayıs', 'Haziran',
-      'Temmuz', 'Ağustos', 'Eylül', 'Ekim', 'Kasım', 'Aralık'
+      'Ocak',
+      'Şubat',
+      'Mart',
+      'Nisan',
+      'Mayıs',
+      'Haziran',
+      'Temmuz',
+      'Ağustos',
+      'Eylül',
+      'Ekim',
+      'Kasım',
+      'Aralık',
     ];
     return months[month - 1];
   }
@@ -99,7 +136,9 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
     final currentYear = DateTime.now().year;
     showModalBottomSheet(
       context: context,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (context) {
         return Container(
           padding: const EdgeInsets.all(20),
@@ -107,19 +146,35 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Görüntülenecek Ayı Seçin', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+              const Text(
+                'Görüntülenecek Ayı Seçin',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
               const SizedBox(height: 16),
               Expanded(
                 child: ListView.builder(
                   itemCount: 12,
                   itemBuilder: (context, index) {
                     final monthIndex = 12 - index; // Son ayları başa getir
-                    final monthId = "$currentYear-${monthIndex.toString().padLeft(2, '0')}";
+                    final monthId =
+                        "$currentYear-${monthIndex.toString().padLeft(2, '0')}";
                     final isSelected = provider.selectedMonth == monthId;
 
                     return ListTile(
-                      title: Text(_getMonthName(monthIndex), style: TextStyle(fontWeight: isSelected ? FontWeight.bold : FontWeight.normal)),
-                      trailing: isSelected ? const Icon(Icons.check_circle, color: AppTheme.ttBlue) : null,
+                      title: Text(
+                        _getMonthName(monthIndex),
+                        style: TextStyle(
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
+                      ),
+                      trailing: isSelected
+                          ? const Icon(
+                              Icons.check_circle,
+                              color: AppTheme.ttBlue,
+                            )
+                          : null,
                       onTap: () {
                         provider.setMonth(monthId);
                         Navigator.pop(context);
@@ -137,7 +192,7 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
 
   Widget _buildSearchBar() {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.only(left: 16, right: 16, top: 16, bottom: 8),
       color: Colors.white,
       child: TextField(
         onChanged: (val) => setState(() => _searchQuery = val),
@@ -155,13 +210,60 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
     );
   }
 
+  Widget _buildFilterRow() {
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            _filterChip('Tümü', null, Colors.blueGrey),
+            const SizedBox(width: 8),
+            _filterChip('Aktif', InternetSaleStatus.aktif, Colors.green),
+            const SizedBox(width: 8),
+            _filterChip(
+              'Beklemede',
+              InternetSaleStatus.beklemede,
+              Colors.orange,
+            ),
+            const SizedBox(width: 8),
+            _filterChip('İptal', InternetSaleStatus.iptal, Colors.red),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _filterChip(String label, InternetSaleStatus? status, Color color) {
+    bool isSelected = _filterStatus == status;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (val) => setState(() => _filterStatus = val ? status : null),
+      selectedColor: color.withOpacity(0.2),
+      labelStyle: TextStyle(
+        color: isSelected ? color : Colors.black87,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+        fontSize: 12,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: isSelected ? color : Colors.grey[200]!),
+      ),
+    );
+  }
+
   Widget _buildSaleCard(InternetSale sale, InternetSaleProvider provider) {
     return Card(
       margin: const EdgeInsets.only(bottom: 16),
       elevation: 2,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: ExpansionTile(
-        title: Text(sale.customerFullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17)),
+        title: Text(
+          sale.customerFullName,
+          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
+        ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -173,11 +275,25 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
                 if (sale.hasOldInternet) ...[
                   const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(color: Colors.purple.withOpacity(0.1), borderRadius: BorderRadius.circular(4)),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.purple.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
                     child: Text(
-                      sale.isOldInternetCanceled ? 'ESKİ İPTAL EDİLDİ' : 'ESKİ İPTAL BEKLİYOR',
-                      style: TextStyle(color: sale.isOldInternetCanceled ? Colors.green : Colors.purple, fontSize: 10, fontWeight: FontWeight.bold),
+                      sale.isOldInternetCanceled
+                          ? 'ESKİ İPTAL EDİLDİ'
+                          : 'ESKİ İPTAL BEKLİYOR',
+                      style: TextStyle(
+                        color: sale.isOldInternetCanceled
+                            ? Colors.green
+                            : Colors.purple,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
                     ),
                   ),
                 ],
@@ -195,7 +311,10 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
                 _buildDetailRow('Hesap No', sale.accountNo),
                 _buildDetailRow('Kampanya', sale.campaign),
                 _buildDetailRow('Paket Hızı', sale.speed),
-                _buildDetailRow('Satış Tarihi', DateFormat('dd.MM.yyyy').format(sale.date)),
+                _buildDetailRow(
+                  'Satış Tarihi',
+                  DateFormat('dd.MM.yyyy').format(sale.date),
+                ),
                 _buildDetailRow('Satış Yapan', sale.sellerName),
                 _buildDetailRow('Telefon', sale.phoneNo),
                 if (sale.description.isNotEmpty)
@@ -209,6 +328,18 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
                       icon: Icons.edit_note,
                       color: AppTheme.ttBlue,
                       onTap: () => _showStatusDialog(context, sale, provider),
+                    ),
+                    _ActionButton(
+                      label: 'DÜZENLE',
+                      icon: Icons.settings_suggest,
+                      color: Colors.amber[800]!,
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              InternetSaleEntryScreen(initialSale: sale),
+                        ),
+                      ),
                     ),
                     _ActionButton(
                       label: 'SİL',
@@ -233,13 +364,20 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text(label, style: TextStyle(color: Colors.grey[600], fontSize: 13)),
-          Text(value, style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14)),
+          Text(
+            value,
+            style: const TextStyle(fontWeight: FontWeight.w500, fontSize: 14),
+          ),
         ],
       ),
     );
   }
 
-  void _showStatusDialog(BuildContext context, InternetSale sale, InternetSaleProvider provider) {
+  void _showStatusDialog(
+    BuildContext context,
+    InternetSale sale,
+    InternetSaleProvider provider,
+  ) {
     showDialog(
       context: context,
       builder: (context) {
@@ -271,7 +409,11 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
     );
   }
 
-  void _handleActivate(BuildContext context, InternetSale sale, InternetSaleProvider provider) {
+  void _handleActivate(
+    BuildContext context,
+    InternetSale sale,
+    InternetSaleProvider provider,
+  ) {
     if (sale.hasOldInternet && !sale.isOldInternetCanceled) {
       _showStrictWarningDialog(context, sale, provider);
     } else {
@@ -280,19 +422,32 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
     }
   }
 
-  void _showStrictWarningDialog(BuildContext context, InternetSale sale, InternetSaleProvider provider) {
+  void _showStrictWarningDialog(
+    BuildContext context,
+    InternetSale sale,
+    InternetSaleProvider provider,
+  ) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
         return AlertDialog(
           backgroundColor: Colors.red[50],
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20), side: BorderSide(color: Colors.red, width: 2)),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(color: Colors.red, width: 2),
+          ),
           title: Row(
             children: const [
               Icon(Icons.warning_amber_rounded, color: Colors.red, size: 30),
               SizedBox(width: 10),
-              Text('KRİTİK UYARI!', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+              Text(
+                'KRİTİK UYARI!',
+                style: TextStyle(
+                  color: Colors.red,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
             ],
           ),
           content: Column(
@@ -310,10 +465,16 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
               const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(color: Colors.red[100], borderRadius: BorderRadius.circular(10)),
+                decoration: BoxDecoration(
+                  color: Colors.red[100],
+                  borderRadius: BorderRadius.circular(10),
+                ),
                 child: const Text(
                   'Sorumluluğu alıyor musunuz?',
-                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
+                  style: TextStyle(
+                    color: Colors.red,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -321,7 +482,10 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(context),
-              child: const Text('HAYIR, KONTROL EDECEĞİM', style: TextStyle(color: Colors.black54)),
+              child: const Text(
+                'HAYIR, KONTROL EDECEĞİM',
+                style: TextStyle(color: Colors.black54),
+              ),
             ),
             ElevatedButton(
               onPressed: () {
@@ -330,7 +494,12 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
                 provider.updateSale(sale);
                 Navigator.pop(context);
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Satış AKTİF edildi ve eski internet iptal edildi olarak işaretlendi.'), backgroundColor: Colors.green),
+                  const SnackBar(
+                    content: Text(
+                      'Satış AKTİF edildi ve eski internet iptal edildi olarak işaretlendi.',
+                    ),
+                    backgroundColor: Colors.green,
+                  ),
                 );
               },
               style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
@@ -342,20 +511,29 @@ class _InternetSaleListScreenState extends State<InternetSaleListScreen> {
     );
   }
 
-  void _confirmDelete(BuildContext context, InternetSale sale, InternetSaleProvider provider) {
+  void _confirmDelete(
+    BuildContext context,
+    InternetSale sale,
+    InternetSaleProvider provider,
+  ) {
     showDialog(
       context: context,
       builder: (context) {
         return AlertDialog(
           title: const Text('Kaydı Sil'),
-          content: const Text('Bu satış kaydını silmek istediğinize emin misiniz?'),
+          content: const Text(
+            'Bu satış kaydını silmek istediğinize emin misiniz?',
+          ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('İPTAL')),
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('İPTAL'),
+            ),
             TextButton(
               onPressed: () {
                 provider.deleteSale(sale.id);
                 Navigator.pop(context);
-              }, 
+              },
               child: const Text('SİL', style: TextStyle(color: Colors.red)),
             ),
           ],
@@ -373,16 +551,29 @@ class _StatusBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     Color color;
     switch (status) {
-      case InternetSaleStatus.aktif: color = Colors.green; break;
-      case InternetSaleStatus.beklemede: color = Colors.orange; break;
-      case InternetSaleStatus.iptal: color = Colors.red; break;
+      case InternetSaleStatus.aktif:
+        color = Colors.green;
+        break;
+      case InternetSaleStatus.beklemede:
+        color = Colors.orange;
+        break;
+      case InternetSaleStatus.iptal:
+        color = Colors.red;
+        break;
     }
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Text(
         status.name.toUpperCase(),
-        style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold),
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -394,7 +585,12 @@ class _ActionButton extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _ActionButton({required this.label, required this.icon, required this.color, required this.onTap});
+  const _ActionButton({
+    required this.label,
+    required this.icon,
+    required this.color,
+    required this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -404,7 +600,14 @@ class _ActionButton extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 24),
           const SizedBox(height: 4),
-          Text(label, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
+          Text(
+            label,
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
         ],
       ),
     );

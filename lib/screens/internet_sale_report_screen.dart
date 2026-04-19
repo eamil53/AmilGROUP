@@ -7,8 +7,15 @@ import '../models/internet_sale.dart';
 import '../providers/internet_sale_provider.dart';
 import '../theme/app_theme.dart';
 
-class InternetSalesReportScreen extends StatelessWidget {
+class InternetSalesReportScreen extends StatefulWidget {
   const InternetSalesReportScreen({super.key});
+
+  @override
+  State<InternetSalesReportScreen> createState() => _InternetSalesReportScreenState();
+}
+
+class _InternetSalesReportScreenState extends State<InternetSalesReportScreen> {
+  InternetSaleStatus? _filterStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -31,18 +38,24 @@ class InternetSalesReportScreen extends StatelessWidget {
           if (provider.isLoading) return const Center(child: CircularProgressIndicator());
           if (provider.sales.isEmpty) return _buildEmptyState();
 
+          final filteredSales = _filterStatus == null 
+              ? provider.sales 
+              : provider.sales.where((s) => s.status == _filterStatus).toList();
+
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildSummaryCards(provider),
+                _buildFilterChips(),
+                const SizedBox(height: 16),
+                _buildSummaryCards(provider, filteredSales),
                 const SizedBox(height: 24),
                 _buildCharSection('Satış Durum Dağılımı', _buildStatusChart(provider)),
                 const SizedBox(height: 24),
-                _buildSellerPerformance(provider),
+                _buildSellerPerformance(filteredSales, provider.sales.length),
                 const SizedBox(height: 24),
-                _buildRecentSalesList(provider),
+                _buildRecentSalesList(filteredSales),
               ],
             ),
           );
@@ -64,12 +77,48 @@ class InternetSalesReportScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryCards(InternetSaleProvider provider) {
+  Widget _buildFilterChips() {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          _filterChip('Tümü', null, Colors.blueGrey),
+          const SizedBox(width: 8),
+          _filterChip('Aktif', InternetSaleStatus.aktif, Colors.green),
+          const SizedBox(width: 8),
+          _filterChip('Beklemede', InternetSaleStatus.beklemede, Colors.orange),
+          const SizedBox(width: 8),
+          _filterChip('İptal', InternetSaleStatus.iptal, Colors.red),
+        ],
+      ),
+    );
+  }
+
+  Widget _filterChip(String label, InternetSaleStatus? status, Color color) {
+    bool isSelected = _filterStatus == status;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (val) => setState(() => _filterStatus = val ? status : null),
+      selectedColor: color.withOpacity(0.2),
+      labelStyle: TextStyle(
+        color: isSelected ? color : Colors.black87,
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+      ),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(20),
+        side: BorderSide(color: isSelected ? color : Colors.grey[300]!),
+      ),
+    );
+  }
+
+  Widget _buildSummaryCards(InternetSaleProvider provider, List<InternetSale> filteredSales) {
+    int aktifCount = filteredSales.where((s) => s.status == InternetSaleStatus.aktif).length;
     return Row(
       children: [
-        Expanded(child: _buildStatCard('Toplam Satış', provider.sales.length.toString(), Icons.shopping_bag, Colors.blue)),
+        Expanded(child: _buildStatCard('Filtrelenen Satış', filteredSales.length.toString(), Icons.shopping_bag, Colors.blue)),
         const SizedBox(width: 12),
-        Expanded(child: _buildStatCard('Aktif Abonelik', provider.countByStatus(InternetSaleStatus.aktif).toString(), Icons.check_circle, Colors.green)),
+        Expanded(child: _buildStatCard('Aktif Abonelik', aktifCount.toString(), Icons.check_circle, Colors.green)),
       ],
     );
   }
@@ -132,8 +181,14 @@ class InternetSalesReportScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildSellerPerformance(InternetSaleProvider provider) {
-    final performance = provider.salesBySellsman();
+  Widget _buildSellerPerformance(List<InternetSale> filteredSales, int totalSales) {
+    if (filteredSales.isEmpty) return const SizedBox.shrink();
+
+    final map = <String, int>{};
+    for (var sale in filteredSales) {
+      map[sale.sellerName] = (map[sale.sellerName] ?? 0) + 1;
+    }
+
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24)),
@@ -142,7 +197,7 @@ class InternetSalesReportScreen extends StatelessWidget {
         children: [
           const Text('Satış Performansı (Personel)', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           const SizedBox(height: 16),
-          ...performance.entries.map((entry) {
+          ...map.entries.map((entry) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Column(
@@ -156,7 +211,7 @@ class InternetSalesReportScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 8),
                   LinearProgressIndicator(
-                    value: entry.value / provider.sales.length,
+                    value: entry.value / filteredSales.length,
                     backgroundColor: Colors.grey[100],
                     color: AppTheme.ttBlue,
                     borderRadius: BorderRadius.circular(10),
@@ -171,7 +226,7 @@ class InternetSalesReportScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildRecentSalesList(InternetSaleProvider provider) {
+  Widget _buildRecentSalesList(List<InternetSale> filteredSales) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -180,19 +235,24 @@ class InternetSalesReportScreen extends StatelessWidget {
         ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
-          itemCount: provider.sales.take(5).length,
+          itemCount: filteredSales.take(10).length,
           itemBuilder: (context, index) {
-            final sale = provider.sales.reversed.toList()[index];
+            final sale = filteredSales[index];
             return Card(
               margin: const EdgeInsets.only(bottom: 12),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              elevation: 0,
+              color: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16), 
+                side: BorderSide(color: Colors.grey[100]!)
+              ),
               child: ListTile(
                 leading: CircleAvatar(
                   backgroundColor: _getStatusColor(sale.status).withOpacity(0.1),
-                  child: Icon(Icons.person, color: _getStatusColor(sale.status)),
+                  child: Icon(Icons.person, color: _getStatusColor(sale.status), size: 18),
                 ),
-                title: Text(sale.customerFullName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: Text('${sale.campaign} - ${DateFormat('dd MMM').format(sale.date)}'),
+                title: Text(sale.customerFullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                subtitle: Text('${sale.campaign} | ${DateFormat('dd MMM HH:mm').format(sale.date)}', style: const TextStyle(fontSize: 12)),
                 trailing: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
@@ -201,7 +261,7 @@ class InternetSalesReportScreen extends StatelessWidget {
                   ),
                   child: Text(
                     sale.status.name.toUpperCase(),
-                    style: TextStyle(color: _getStatusColor(sale.status), fontSize: 10, fontWeight: FontWeight.bold),
+                    style: TextStyle(color: _getStatusColor(sale.status), fontSize: 9, fontWeight: FontWeight.bold),
                   ),
                 ),
               ),
