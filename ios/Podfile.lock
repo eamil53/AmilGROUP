@@ -1239,10 +1239,18 @@ PODS:
   - Firebase/Firestore (12.9.0):
     - Firebase/CoreOnly
     - FirebaseFirestore (~> 12.9.0)
+  - Firebase/Storage (12.9.0):
+    - Firebase/CoreOnly
+    - FirebaseStorage (~> 12.9.0)
   - firebase_core (4.6.0):
     - Firebase/CoreOnly (= 12.9.0)
     - Flutter
+  - firebase_storage (13.2.0):
+    - Firebase/Storage (= 12.9.0)
+    - firebase_core
+    - Flutter
   - FirebaseAppCheckInterop (12.9.0)
+  - FirebaseAuthInterop (12.9.0)
   - FirebaseCore (12.9.0):
     - FirebaseCoreInternal (~> 12.9.0)
     - GoogleUtilities/Environment (~> 8.1)
@@ -1272,6 +1280,13 @@ PODS:
     - leveldb-library (~> 1.22)
     - nanopb (~> 3.30910.0)
   - FirebaseSharedSwift (12.9.0)
+  - FirebaseStorage (12.9.0):
+    - FirebaseAppCheckInterop (~> 12.9.0)
+    - FirebaseAuthInterop (~> 12.9.0)
+    - FirebaseCore (~> 12.9.0)
+    - FirebaseCoreExtension (~> 12.9.0)
+    - GoogleUtilities/Environment (~> 8.1)
+    - GTMSessionFetcher/Core (< 6.0, >= 3.4)
   - Flutter (1.0.0)
   - flutter_local_notifications (0.0.1):
     - Flutter
@@ -1448,6 +1463,7 @@ DEPENDENCIES:
   - cloud_firestore (from `.symlinks/plugins/cloud_firestore/ios`)
   - file_picker (from `.symlinks/plugins/file_picker/ios`)
   - firebase_core (from `.symlinks/plugins/firebase_core/ios`)
+  - firebase_storage (from `.symlinks/plugins/firebase_storage/ios`)
   - Flutter (from `Flutter`)
   - flutter_local_notifications (from `.symlinks/plugins/flutter_local_notifications/ios`)
   - google_mlkit_commons (from `.symlinks/plugins/google_mlkit_commons/ios`)
@@ -1465,12 +1481,14 @@ SPEC REPOS:
     - DKPhotoGallery
     - Firebase
     - FirebaseAppCheckInterop
+    - FirebaseAuthInterop
     - FirebaseCore
     - FirebaseCoreExtension
     - FirebaseCoreInternal
     - FirebaseFirestore
     - FirebaseFirestoreInternal
     - FirebaseSharedSwift
+    - FirebaseStorage
     - GoogleDataTransport
     - GoogleMLKit
     - GoogleToolboxForMac
@@ -1498,6 +1516,8 @@ EXTERNAL SOURCES:
     :path: ".symlinks/plugins/file_picker/ios"
   firebase_core:
     :path: ".symlinks/plugins/firebase_core/ios"
+  firebase_storage:
+    :path: ".symlinks/plugins/firebase_storage/ios"
   Flutter:
     :path: Flutter
   flutter_local_notifications:
@@ -1525,13 +1545,16 @@ SPEC CHECKSUMS:
   file_picker: a0560bc09d61de87f12d246fc47d2119e6ef37be
   Firebase: 065f2bb395062046623036d8e6dc857bc2521d56
   firebase_core: 8e6f58412ca227827c366b92e7cee047a2148c60
+  firebase_storage: 8d16922c017c49812f7bbe64a86f756f99a44c74
   FirebaseAppCheckInterop: 4bade10286cc977e516f75d2d8312cbdfa534789
+  FirebaseAuthInterop: f8f6ff72dc24621906497fbe5cf3c42ee815e59c
   FirebaseCore: 428912f751178b06bef0a1793effeb4a5e09a9b8
   FirebaseCoreExtension: e911052d59cd0da237a45d706fc0f81654f035c1
   FirebaseCoreInternal: b321eafae5362113bc182956fafc9922cfc77b72
   FirebaseFirestore: d8b76ca1feb4ca0b0f078c45f7d1bd8014a49ef1
   FirebaseFirestoreInternal: 02341a9ba87f6309227b04685022a5e16307bbf7
   FirebaseSharedSwift: 9d2fa84a46676302b89dbd5e6e62bce2fe376909
+  FirebaseStorage: 3ba2348d876c295236cdd9f408a62d3f9ff8e6b5
   Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
   flutter_local_notifications: ad39620c743ea4c15127860f4b5641649a988100
   google_mlkit_commons: a5e4ffae5bc59ea4c7b9025dc72cb6cb79dc1166
